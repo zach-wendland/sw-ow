@@ -1,4 +1,4 @@
 # Services
-from api.services.supabase import get_supabase_client
+# Note: Supabase has been removed - game uses localStorage for persistence
 
-__all__ = ["get_supabase_client"]
+__all__ = []

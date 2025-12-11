@@ -32,16 +32,12 @@ export default function HomePage() {
               own path in this browser-based 3D open world experience.
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
-              <Link href="/game">
+              <Link href="/characters">
                 <Button size="lg" className="gap-2">
                   <Gamepad2 className="h-5 w-5" />
                   Play Now
                 </Button>
               </Link>
-              <Button variant="outline" size="lg" className="gap-2">
-                <Users className="h-5 w-5" />
-                Sign In
-              </Button>
             </div>
           </div>
         </div>
@@ -110,7 +106,7 @@ export default function HomePage() {
       <footer className="border-t border-slate-800 py-8">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <p className="text-center text-sm text-slate-500">
-            Built with Next.js, Three.js, FastAPI, and Supabase
+            Built with Next.js, Three.js, and FastAPI
           </p>
         </div>
       </footer>

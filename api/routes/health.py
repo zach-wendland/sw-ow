@@ -48,15 +48,8 @@ async def readiness_check():
     Deep health check - verifies all dependencies.
     Used before accepting traffic after deployment.
     """
-    checks = {}
+    checks = {"api": "ok"}
     all_healthy = True
-
-    # Check if Supabase is configured
-    if settings.SUPABASE_URL and settings.SUPABASE_ANON_KEY:
-        checks["supabase_config"] = {"status": "ok"}
-    else:
-        checks["supabase_config"] = {"status": "not_configured"}
-        # Not a failure - might be using mock data
 
     return ReadinessStatus(ready=all_healthy, checks=checks)
 

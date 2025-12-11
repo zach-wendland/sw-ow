@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth, type CharacterSummary } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
@@ -18,27 +18,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
-import { useToast } from "@/hooks/use-toast";
-import { getSupabase } from "@/lib/supabase/client";
 import {
   Loader2,
   Plus,
   Play,
   Trash2,
-  User,
   Clock,
   MapPin,
   Sword,
   Shield,
   Brain,
   Heart,
-  LogOut,
 } from "lucide-react";
 
 // ============================================================================
@@ -77,22 +71,8 @@ function CharacterSlot({
     );
   }
 
-  const alignmentColor =
-    character.alignment > 30
-      ? "text-blue-400"
-      : character.alignment < -30
-        ? "text-red-400"
-        : "text-gray-400";
-
-  const alignmentLabel =
-    character.alignment > 30
-      ? "Light Side"
-      : character.alignment < -30
-        ? "Dark Side"
-        : "Neutral";
-
-  const playTimeHours = Math.floor(character.total_play_time_seconds / 3600);
-  const playTimeMinutes = Math.floor((character.total_play_time_seconds % 3600) / 60);
+  const playTimeHours = Math.floor(character.totalPlayTime / 3600);
+  const playTimeMinutes = Math.floor((character.totalPlayTime % 3600) / 60);
 
   return (
     <Card className="hover:border-primary/50 transition-all duration-200 group">
@@ -100,12 +80,7 @@ function CharacterSlot({
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-lg">{character.name}</CardTitle>
-            <CardDescription className="flex items-center gap-1">
-              Level {character.level}
-              <span className={`ml-2 text-xs ${alignmentColor}`}>
-                ({alignmentLabel})
-              </span>
-            </CardDescription>
+            <CardDescription>Level {character.level}</CardDescription>
           </div>
           <div className="opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
@@ -125,7 +100,7 @@ function CharacterSlot({
       <CardContent className="space-y-3">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="h-4 w-4" />
-          <span className="capitalize">{character.current_zone.replace(/_/g, " ")}</span>
+          <span className="capitalize">{character.currentZone.replace(/_/g, " ")}</span>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="h-4 w-4" />
@@ -150,19 +125,14 @@ function CharacterSlot({
 interface CreateCharacterDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  slotNumber: number;
-  onCreated: () => void;
-  playerId: string;
+  onCreated: (name: string, attributes: { strength: number; dexterity: number; intelligence: number; vitality: number }) => void;
 }
 
 function CreateCharacterDialog({
   open,
   onOpenChange,
-  slotNumber,
   onCreated,
-  playerId,
 }: CreateCharacterDialogProps) {
-  const { toast } = useToast();
   const [name, setName] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
@@ -175,77 +145,22 @@ function CreateCharacterDialog({
   const totalPoints = strength + dexterity + intelligence + vitality;
   const pointsRemaining = 40 - totalPoints;
 
-  const handleCreate = async () => {
-    if (!name.trim()) {
-      toast({
-        title: "Name Required",
-        description: "Please enter a name for your character.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (pointsRemaining !== 0) {
-      toast({
-        title: "Attribute Points",
-        description: "Please allocate all attribute points before continuing.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const handleCreate = () => {
+    if (!name.trim() || pointsRemaining !== 0) return;
 
     setIsCreating(true);
 
-    try {
-      const supabase = getSupabase();
+    // Create character via context
+    onCreated(name.trim(), { strength, dexterity, intelligence, vitality });
 
-      // Calculate initial stats
-      const maxHealth = 100 + vitality * 5;
-      const maxStamina = 100 + dexterity * 2;
-      const maxMana = 50 + intelligence * 3;
-
-      const { error } = await supabase.from("characters").insert({
-        player_id: playerId,
-        name: name.trim(),
-        slot_number: slotNumber,
-        strength,
-        dexterity,
-        intelligence,
-        vitality,
-        max_health: maxHealth,
-        health: maxHealth,
-        max_stamina: maxStamina,
-        stamina: maxStamina,
-        max_mana: maxMana,
-        mana: maxMana,
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Character Created!",
-        description: `${name} is ready for adventure.`,
-      });
-
-      onCreated();
-      onOpenChange(false);
-
-      // Reset form
-      setName("");
-      setStrength(10);
-      setDexterity(10);
-      setIntelligence(10);
-      setVitality(10);
-    } catch (err) {
-      console.error("Failed to create character:", err);
-      toast({
-        title: "Creation Failed",
-        description: "Could not create character. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsCreating(false);
-    }
+    // Reset form
+    setName("");
+    setStrength(10);
+    setDexterity(10);
+    setIntelligence(10);
+    setVitality(10);
+    setIsCreating(false);
+    onOpenChange(false);
   };
 
   return (
@@ -254,7 +169,7 @@ function CreateCharacterDialog({
         <DialogHeader>
           <DialogTitle>Create New Character</DialogTitle>
           <DialogDescription>
-            Create a new character in Slot {slotNumber}
+            Create a new character for your adventure
           </DialogDescription>
         </DialogHeader>
 
@@ -266,7 +181,7 @@ function CreateCharacterDialog({
               id="charName"
               placeholder="Enter name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
               maxLength={30}
             />
           </div>
@@ -380,7 +295,7 @@ function CreateCharacterDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleCreate} disabled={isCreating || pointsRemaining !== 0}>
+          <Button onClick={handleCreate} disabled={isCreating || pointsRemaining !== 0 || !name.trim()}>
             {isCreating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -403,32 +318,21 @@ function CreateCharacterDialog({
 export default function CharacterSelectPage() {
   const router = useRouter();
   const {
-    isAuthenticated,
     isLoading,
-    player,
     characters,
     selectCharacter,
-    refreshCharacters,
-    signOut,
+    createNewCharacter,
+    deleteCharacterById,
   } = useAuth();
-  const { toast } = useToast();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [createSlot, setCreateSlot] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<CharacterSummary | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isLoading, isAuthenticated, router]);
 
   // Create slot array (1-5) with characters mapped
   const slots = [1, 2, 3, 4, 5].map((slotNum) => ({
     slotNumber: slotNum,
-    character: characters.find((c) => c.slot_number === slotNum) || null,
+    character: characters.find((c) => c.slotNumber === slotNum) || null,
   }));
 
   const handleSelect = (character: CharacterSummary) => {
@@ -436,53 +340,20 @@ export default function CharacterSelectPage() {
     router.push("/game");
   };
 
-  const handleOpenCreate = (slotNumber: number) => {
-    setCreateSlot(slotNumber);
-    setCreateDialogOpen(true);
+  const handleCreate = (name: string, attributes: { strength: number; dexterity: number; intelligence: number; vitality: number }) => {
+    createNewCharacter(name, attributes);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteTarget) return;
 
     setIsDeleting(true);
-    try {
-      const supabase = getSupabase();
-      const { error } = await supabase
-        .from("characters")
-        .delete()
-        .eq("id", deleteTarget.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Character Deleted",
-        description: `${deleteTarget.name} has been deleted.`,
-      });
-
-      refreshCharacters();
-      setDeleteTarget(null);
-    } catch (err) {
-      console.error("Failed to delete character:", err);
-      toast({
-        title: "Delete Failed",
-        description: "Could not delete character. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
-    }
+    deleteCharacterById(deleteTarget.id);
+    setDeleteTarget(null);
+    setIsDeleting(false);
   };
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.push("/");
-    } catch (err) {
-      console.error("Sign out error:", err);
-    }
-  };
-
-  if (isLoading || !player) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -494,20 +365,8 @@ export default function CharacterSelectPage() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       {/* Header */}
       <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-full">
-              <User className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="font-medium">{player.display_name || player.username}</p>
-              <p className="text-xs text-muted-foreground">@{player.username}</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
+        <div className="container mx-auto px-4 py-4">
+          <h2 className="text-xl font-bold">SW-OW</h2>
         </div>
       </header>
 
@@ -529,7 +388,7 @@ export default function CharacterSelectPage() {
                 character={character}
                 slotNumber={slotNumber}
                 onSelect={handleSelect}
-                onCreate={handleOpenCreate}
+                onCreate={() => setCreateDialogOpen(true)}
                 onDelete={setDeleteTarget}
               />
             ))}
@@ -538,15 +397,11 @@ export default function CharacterSelectPage() {
       </main>
 
       {/* Create Character Dialog */}
-      {player && (
-        <CreateCharacterDialog
-          open={createDialogOpen}
-          onOpenChange={setCreateDialogOpen}
-          slotNumber={createSlot}
-          onCreated={refreshCharacters}
-          playerId={player.id}
-        />
-      )}
+      <CreateCharacterDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreated={handleCreate}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>

@@ -14,6 +14,7 @@ enum Controls {
   jump = "jump",
   sprint = "sprint",
   interact = "interact",
+  attack = "attack",
 }
 
 const keyboardMap: KeyboardControlsEntry<Controls>[] = [
@@ -24,6 +25,7 @@ const keyboardMap: KeyboardControlsEntry<Controls>[] = [
   { name: Controls.jump, keys: ["Space"] },
   { name: Controls.sprint, keys: ["ShiftLeft", "ShiftRight"] },
   { name: Controls.interact, keys: ["KeyE"] },
+  { name: Controls.attack, keys: ["KeyF"] },
 ];
 
 export function GameCanvas() {

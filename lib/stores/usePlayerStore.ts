@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { subscribeWithSelector, persist, createJSONStorage } from "zustand/middleware";
-import { getSupabase } from "@/lib/supabase/client";
+import {
+  loadCharacterSave,
+  saveCharacterSave,
+  type SaveData,
+} from "@/lib/storage/localStorage";
 
 // ============================================================================
 // TYPES
@@ -347,80 +351,37 @@ export const usePlayerStore = create<PlayerState>()(
         setRespawnPoint: (position) => set({ respawnPoint: position }),
 
         // ========================================
-        // Persistence Actions
+        // Persistence Actions (localStorage)
         // ========================================
         loadCharacter: async (characterId: string) => {
           set({ isLoading: true });
 
           try {
-            const supabase = getSupabase();
+            const data = loadCharacterSave(characterId);
 
-            const { data, error } = await supabase
-              .from("characters")
-              .select("*")
-              .eq("id", characterId)
-              .single();
-
-            if (error || !data) {
-              console.error("Failed to load character:", error);
+            if (!data) {
+              console.error("Failed to load character: not found");
               set({ isLoading: false });
               return false;
             }
 
-            // Map database fields to store state
+            // Load from localStorage save
             set({
-              characterId: data.id,
-              playerId: data.player_id,
-              characterData: {
-                id: data.id,
-                name: data.name,
-                slotNumber: data.slot_number,
-                currentZone: data.current_zone,
-                totalPlayTime: data.total_play_time_seconds,
-                enemiesKilled: data.enemies_killed,
-                deaths: data.deaths,
-                questsCompleted: data.quests_completed,
-                distanceTraveled: data.distance_traveled,
-              },
-              position: {
-                x: data.position_x,
-                y: data.position_y,
-                z: data.position_z,
-              },
-              rotation: data.rotation_y,
-              respawnPoint: {
-                x: data.respawn_point_x,
-                y: data.respawn_point_y,
-                z: data.respawn_point_z,
-              },
-              stats: {
-                health: data.health,
-                maxHealth: data.max_health,
-                stamina: data.stamina,
-                maxStamina: data.max_stamina,
-                mana: data.mana,
-                maxMana: data.max_mana,
-                xp: data.experience,
-                xpToNextLevel: data.experience_to_next_level,
-                level: data.level,
-                alignment: data.alignment,
-                gold: data.gold,
-                skillPoints: data.skill_points,
-                attributePoints: data.attribute_points,
-              },
-              attributes: {
-                strength: data.strength,
-                dexterity: data.dexterity,
-                intelligence: data.intelligence,
-                vitality: data.vitality,
-              },
-              isDead: data.is_dead,
+              characterId: data.characterId,
+              playerId: "local",
+              characterData: data.characterData,
+              position: data.position,
+              rotation: data.rotation,
+              respawnPoint: data.respawnPoint,
+              stats: data.stats,
+              attributes: data.attributes,
+              isDead: data.isDead,
               isLoading: false,
               sessionStartTime: Date.now(),
               sessionPlayTime: 0,
             });
 
-            console.log("[PlayerStore] Character loaded:", data.name);
+            console.log("[PlayerStore] Character loaded:", data.characterData.name);
             return true;
           } catch (err) {
             console.error("Failed to load character:", err);
@@ -432,7 +393,7 @@ export const usePlayerStore = create<PlayerState>()(
         saveCharacter: async () => {
           const state = get();
 
-          if (!state.characterId) {
+          if (!state.characterId || !state.characterData) {
             console.warn("[PlayerStore] No character to save");
             return false;
           }
@@ -440,60 +401,35 @@ export const usePlayerStore = create<PlayerState>()(
           set({ isSaving: true });
 
           try {
-            const supabase = getSupabase();
-
             // Update session play time
             const currentSessionTime = Math.floor(
               (Date.now() - state.sessionStartTime) / 1000
             );
 
             const totalPlayTime =
-              (state.characterData?.totalPlayTime || 0) +
+              (state.characterData.totalPlayTime || 0) +
               currentSessionTime -
               state.sessionPlayTime;
 
-            const saveData = {
-              // Position
-              position_x: state.position.x,
-              position_y: state.position.y,
-              position_z: state.position.z,
-              rotation_y: state.rotation,
-              current_zone: state.characterData?.currentZone || "starting_area",
-
-              // Stats
-              health: state.stats.health,
-              stamina: state.stats.stamina,
-              mana: state.stats.mana,
-              experience: state.stats.xp,
-              gold: state.stats.gold,
-              skill_points: state.stats.skillPoints,
-              attribute_points: state.stats.attributePoints,
-              alignment: state.stats.alignment,
-
-              // State
-              is_dead: state.isDead,
-              respawn_point_x: state.respawnPoint.x,
-              respawn_point_y: state.respawnPoint.y,
-              respawn_point_z: state.respawnPoint.z,
-
-              // Stats tracking
-              total_play_time_seconds: totalPlayTime,
-              enemies_killed: state.characterData?.enemiesKilled || 0,
-              deaths: state.characterData?.deaths || 0,
-              quests_completed: state.characterData?.questsCompleted || 0,
-              distance_traveled: state.characterData?.distanceTraveled || 0,
-
-              // Updated timestamp
-              last_played_at: new Date().toISOString(),
+            const saveData: SaveData = {
+              characterId: state.characterId,
+              characterData: {
+                ...state.characterData,
+                totalPlayTime,
+              },
+              position: state.position,
+              rotation: state.rotation,
+              respawnPoint: state.respawnPoint,
+              stats: state.stats,
+              attributes: state.attributes,
+              isDead: state.isDead,
+              lastSaved: Date.now(),
             };
 
-            const { error } = await supabase
-              .from("characters")
-              .update(saveData)
-              .eq("id", state.characterId);
+            const success = saveCharacterSave(state.characterId, saveData);
 
-            if (error) {
-              console.error("Failed to save character:", error);
+            if (!success) {
+              console.error("Failed to save character to localStorage");
               set({ isSaving: false });
               return false;
             }
@@ -502,6 +438,7 @@ export const usePlayerStore = create<PlayerState>()(
               isSaving: false,
               lastSaveTime: Date.now(),
               sessionPlayTime: currentSessionTime,
+              characterData: saveData.characterData,
             });
 
             console.log("[PlayerStore] Character saved successfully");

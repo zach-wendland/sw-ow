@@ -1,11 +1,39 @@
 "use client";
 
-import { Environment, Stars, Sky } from "@react-three/drei";
+import { useEffect } from "react";
+import { Stars, Sky } from "@react-three/drei";
 import { Player } from "../entities/Player";
+import { EnemyList } from "../entities/Enemy";
+import { DamageNumbers } from "../effects/DamageNumber";
 import { Terrain } from "../world/Terrain";
 import { ThirdPersonCamera } from "./Camera";
+import { useEnemyStore } from "@/lib/stores/useEnemyStore";
+
+// Initial enemy spawns for testing
+const INITIAL_SPAWNS = [
+  { type: "slime", position: { x: 10, y: 1, z: 10 } },
+  { type: "slime", position: { x: -8, y: 1, z: 12 } },
+  { type: "wolf", position: { x: 15, y: 1, z: -5 } },
+  { type: "wolf", position: { x: -12, y: 1, z: -10 } },
+  { type: "bandit", position: { x: 20, y: 1, z: 20 } },
+  { type: "skeleton", position: { x: -20, y: 1, z: 15 } },
+  { type: "golem", position: { x: 30, y: 1, z: 0 } },
+];
 
 export function Scene() {
+  const spawnEnemies = useEnemyStore((state) => state.spawnEnemies);
+  const clearAllEnemies = useEnemyStore((state) => state.clearAllEnemies);
+
+  // Spawn initial enemies on mount
+  useEffect(() => {
+    clearAllEnemies();
+    spawnEnemies(INITIAL_SPAWNS);
+
+    return () => {
+      clearAllEnemies();
+    };
+  }, [spawnEnemies, clearAllEnemies]);
+
   return (
     <>
       {/* Lighting */}
@@ -43,6 +71,12 @@ export function Scene() {
 
       {/* World */}
       <Terrain />
+
+      {/* Enemies */}
+      <EnemyList />
+
+      {/* Effects */}
+      <DamageNumbers />
 
       {/* Player */}
       <Player position={[0, 2, 0]} />

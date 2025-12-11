@@ -68,10 +68,20 @@ const DEFAULT_TIMEOUT = 30000;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
-interface RequestConfig extends RequestInit {
+interface FetchConfig {
   timeout?: number;
   retries?: number;
   retryDelay?: number;
+  headers?: HeadersInit;
+  method?: string;
+  body?: BodyInit | null;
+}
+
+interface RequestConfig {
+  timeout?: number;
+  retries?: number;
+  retryDelay?: number;
+  headers?: HeadersInit;
 }
 
 // ============================================================================
@@ -80,7 +90,7 @@ interface RequestConfig extends RequestInit {
 
 async function fetchWithTimeout(
   url: string,
-  config: RequestConfig = {}
+  config: FetchConfig = {}
 ): Promise<Response> {
   const { timeout = DEFAULT_TIMEOUT, ...fetchConfig } = config;
 
@@ -100,7 +110,7 @@ async function fetchWithTimeout(
 
 async function fetchWithRetry(
   url: string,
-  config: RequestConfig = {}
+  config: FetchConfig = {}
 ): Promise<Response> {
   const { retries = MAX_RETRIES, retryDelay = RETRY_DELAY, ...fetchConfig } = config;
 
@@ -151,16 +161,15 @@ class ApiClient {
   private async request<T>(
     method: string,
     endpoint: string,
-    options: RequestConfig & { body?: unknown } = {}
+    body?: unknown,
+    config: RequestConfig = {}
   ): Promise<T> {
-    const { body, ...config } = options;
-
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       Accept: "application/json",
-      ...options.headers,
+      ...config.headers,
     };
 
     const response = await fetchWithRetry(url, {
@@ -192,7 +201,7 @@ class ApiClient {
   }
 
   async get<T>(endpoint: string, config?: RequestConfig): Promise<T> {
-    return this.request<T>("GET", endpoint, config);
+    return this.request<T>("GET", endpoint, undefined, config);
   }
 
   async post<T>(
@@ -200,7 +209,7 @@ class ApiClient {
     body?: unknown,
     config?: RequestConfig
   ): Promise<T> {
-    return this.request<T>("POST", endpoint, { ...config, body });
+    return this.request<T>("POST", endpoint, body, config);
   }
 
   async patch<T>(
@@ -208,7 +217,7 @@ class ApiClient {
     body?: unknown,
     config?: RequestConfig
   ): Promise<T> {
-    return this.request<T>("PATCH", endpoint, { ...config, body });
+    return this.request<T>("PATCH", endpoint, body, config);
   }
 
   async put<T>(
@@ -216,11 +225,11 @@ class ApiClient {
     body?: unknown,
     config?: RequestConfig
   ): Promise<T> {
-    return this.request<T>("PUT", endpoint, { ...config, body });
+    return this.request<T>("PUT", endpoint, body, config);
   }
 
   async delete<T>(endpoint: string, config?: RequestConfig): Promise<T> {
-    return this.request<T>("DELETE", endpoint, config);
+    return this.request<T>("DELETE", endpoint, undefined, config);
   }
 }
 

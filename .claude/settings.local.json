@@ -8,7 +8,12 @@
       "Bash(npm run type-check:*)",
       "Bash(npx tsc:*)",
       "Bash(npm install)",
-      "Bash(npm install --legacy-peer-deps)"
+      "Bash(npm install --legacy-peer-deps)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "Bash(npm view:*)",
+      "Bash(git add:*)"
     ]
   }
 }

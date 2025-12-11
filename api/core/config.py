@@ -35,11 +35,6 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",")]
         return v
 
-    # Supabase
-    SUPABASE_URL: str = ""
-    SUPABASE_ANON_KEY: str = ""
-    SUPABASE_SERVICE_ROLE_KEY: str = ""
-
     # Rate Limiting
     RATE_LIMIT_REQUESTS: int = 100
     RATE_LIMIT_WINDOW_SECONDS: int = 60

@@ -21,17 +21,10 @@ const GameCanvas = dynamic(
 
 export default function GamePage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, activeCharacterId } = useAuth();
+  const { isLoading: authLoading, activeCharacterId } = useAuth();
   const { loadCharacter, characterId, isLoading: charLoading, autoSave, saveCharacter } = usePlayerStore();
 
   const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push("/login");
-    }
-  }, [authLoading, isAuthenticated, router]);
 
   // Load character on mount
   useEffect(() => {
