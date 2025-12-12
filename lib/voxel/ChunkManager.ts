@@ -122,12 +122,25 @@ export class ChunkManager {
   }
 
   /**
+   * Get the vertical chunk range needed for current terrain config.
+   * Outdoor-first: load only the chunk layers that can contain terrain.
+   */
+  private getTerrainChunkYRange(): { minY: number; maxY: number } {
+    // Terrain occupies [0 .. baseHeight + heightVariation] (approx).
+    // We include a small buffer so the surface isn't clipped by rounding.
+    const maxTerrainY = this.terrainConfig.baseHeight + this.terrainConfig.heightVariation + 2;
+    const maxLayerCount = Math.max(1, Math.ceil(maxTerrainY / CHUNK_SIZE));
+    return { minY: 0, maxY: maxLayerCount - 1 };
+  }
+
+  /**
    * Update chunk loading based on player position
    * Call this every frame or when player moves significantly
    */
   update(playerX: number, playerZ: number): void {
     const playerChunk = worldToChunkCoord(playerX, 0, playerZ);
     const renderDist = this.config.renderDistance;
+    const { minY, maxY } = this.getTerrainChunkYRange();
 
     // Track which chunks should be loaded
     const neededChunks = new Set<ChunkKey>();
@@ -138,16 +151,19 @@ export class ChunkManager {
         // Circular render distance
         if (dx * dx + dz * dz > renderDist * renderDist) continue;
 
-        const coord: ChunkCoord = {
-          x: playerChunk.x + dx,
-          z: playerChunk.z + dz,
-        };
-        const key = chunkKeyFromCoord(coord);
-        neededChunks.add(key);
+        for (let cy = minY; cy <= maxY; cy++) {
+          const coord: ChunkCoord = {
+            x: playerChunk.x + dx,
+            z: playerChunk.z + dz,
+            ...(cy === 0 ? {} : { y: cy }),
+          };
+          const key = chunkKeyFromCoord(coord);
+          neededChunks.add(key);
 
-        // Load chunk if not already loaded
-        if (!this.chunks.has(key)) {
-          this.loadChunk(coord);
+          // Load chunk if not already loaded
+          if (!this.chunks.has(key)) {
+            this.loadChunk(coord);
+          }
         }
       }
     }
@@ -309,10 +325,13 @@ export class ChunkManager {
       this.queueForMeshing(key);
 
       // Also re-mesh neighbors if block is on edge
-      if (lx === 0) this.markNeighborDirty(chunkCoord.x - 1, chunkCoord.z);
-      if (lx === CHUNK_SIZE - 1) this.markNeighborDirty(chunkCoord.x + 1, chunkCoord.z);
-      if (lz === 0) this.markNeighborDirty(chunkCoord.x, chunkCoord.z - 1);
-      if (lz === CHUNK_SIZE - 1) this.markNeighborDirty(chunkCoord.x, chunkCoord.z + 1);
+      const cy = chunkCoord.y ?? 0;
+      if (lx === 0) this.markNeighborDirty(chunkCoord.x - 1, cy, chunkCoord.z);
+      if (lx === CHUNK_SIZE - 1) this.markNeighborDirty(chunkCoord.x + 1, cy, chunkCoord.z);
+      if (lz === 0) this.markNeighborDirty(chunkCoord.x, cy, chunkCoord.z - 1);
+      if (lz === CHUNK_SIZE - 1) this.markNeighborDirty(chunkCoord.x, cy, chunkCoord.z + 1);
+      if (ly === 0 && cy > 0) this.markNeighborDirty(chunkCoord.x, cy - 1, chunkCoord.z);
+      if (ly === CHUNK_SIZE - 1) this.markNeighborDirty(chunkCoord.x, cy + 1, chunkCoord.z);
     }
 
     return changed;
@@ -321,8 +340,8 @@ export class ChunkManager {
   /**
    * Mark a neighboring chunk as dirty
    */
-  private markNeighborDirty(cx: number, cz: number): void {
-    const key = chunkKeyFromCoord({ x: cx, z: cz });
+  private markNeighborDirty(cx: number, cy: number, cz: number): void {
+    const key = chunkKeyFromCoord({ x: cx, y: cy, z: cz });
     const chunk = this.chunks.get(key);
     if (chunk) {
       chunk.markDirty();
@@ -407,9 +426,12 @@ export class ChunkManager {
 // Create a default instance for simple usage
 let defaultManager: ChunkManager | null = null;
 
-export function getChunkManager(): ChunkManager {
+export function getChunkManager(
+  config: Partial<ChunkManagerConfig> = {},
+  terrainConfig: Partial<TerrainGeneratorConfig> = {}
+): ChunkManager {
   if (!defaultManager) {
-    defaultManager = new ChunkManager();
+    defaultManager = new ChunkManager(config, terrainConfig);
   }
   return defaultManager;
 }

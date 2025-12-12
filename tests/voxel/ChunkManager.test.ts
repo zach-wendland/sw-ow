@@ -52,10 +52,10 @@ describe("ChunkManager", () => {
       manager.update(0, 0);
 
       const stats = manager.getStats();
-      // With render distance 2 and circular loading:
-      // Roughly pi * r^2 = ~12 chunks
+      // With render distance 2 and circular loading, plus vertical terrain layers:
+      // Roughly pi * r^2 = ~12 chunks per layer.
       expect(stats.loadedChunks).toBeGreaterThan(0);
-      expect(stats.loadedChunks).toBeLessThanOrEqual(25); // 5x5 max
+      expect(stats.loadedChunks).toBeLessThanOrEqual(50); // 5x5 max per 2 layers
     });
 
     it("should load chunk at origin", () => {

@@ -141,7 +141,9 @@ export interface TerrainGeneratorConfig {
 export type ChunkKey = string; // Format: "x,z" or "x,y,z"
 
 export function chunkKeyFromCoord(coord: ChunkCoord): ChunkKey {
-  return coord.y !== undefined
+  // Back-compat: keep y=0 as 2D key ("x,z") to avoid churn across code/tests.
+  // Non-zero y uses 3D key ("x,y,z").
+  return coord.y !== undefined && coord.y !== 0
     ? `${coord.x},${coord.y},${coord.z}`
     : `${coord.x},${coord.z}`;
 }

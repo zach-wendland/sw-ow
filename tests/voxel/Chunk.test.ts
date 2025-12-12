@@ -377,12 +377,14 @@ describe("World-Chunk Coordinate Helpers", () => {
     it("should generate correct chunk key from world position", () => {
       // worldToChunkKey uses 3D coordinates (includes y)
       const key = worldToChunkKey(32, 0, 48);
-      expect(key).toBe("2,0,3"); // x,y,z format
+      // Back-compat: y=0 uses 2D key format.
+      expect(key).toBe("2,3");
     });
 
     it("should handle negative coordinates", () => {
       const key = worldToChunkKey(-16, 0, -32);
-      expect(key).toBe("-1,0,-2"); // x,y,z format
+      // Back-compat: y=0 uses 2D key format.
+      expect(key).toBe("-1,-2");
     });
   });
 

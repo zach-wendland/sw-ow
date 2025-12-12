@@ -4,8 +4,8 @@ import React, { useRef, useEffect, useMemo, useCallback, useState } from "react"
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { usePlayerStore } from "@/lib/stores/usePlayerStore";
-import { ChunkManager } from "@/lib/voxel/ChunkManager";
-import { ChunkKey, ChunkMeshData, coordFromChunkKey } from "@/lib/voxel/types";
+import { getChunkManager, resetChunkManager } from "@/lib/voxel/ChunkManager";
+import { ChunkKey, ChunkMeshData } from "@/lib/voxel/types";
 import { CHUNK_SIZE } from "@/lib/voxel/constants";
 
 // ============================================================================
@@ -47,16 +47,6 @@ function ChunkMesh({ chunkKey, meshData }: ChunkMeshProps) {
     return geo;
   }, [meshData]);
 
-  // Calculate chunk world position
-  const position = useMemo(() => {
-    const coord = coordFromChunkKey(chunkKey);
-    return new THREE.Vector3(
-      coord.x * CHUNK_SIZE,
-      0,
-      coord.z * CHUNK_SIZE
-    );
-  }, [chunkKey]);
-
   // Don't render empty chunks
   if (!geometry) {
     return null;
@@ -65,7 +55,6 @@ function ChunkMesh({ chunkKey, meshData }: ChunkMeshProps) {
   return (
     <mesh
       ref={meshRef}
-      position={position}
       geometry={geometry}
       receiveShadow
       castShadow
@@ -94,7 +83,7 @@ export function VoxelTerrain({
   renderDistance = 6,
 }: VoxelTerrainProps) {
   // Chunk manager ref (stable across renders)
-  const managerRef = useRef<ChunkManager | null>(null);
+  const managerRef = useRef<ReturnType<typeof getChunkManager> | null>(null);
 
   // Track visible chunk meshes
   const [chunkMeshes, setChunkMeshes] = useState<Map<ChunkKey, ChunkMeshData>>(
@@ -106,10 +95,9 @@ export function VoxelTerrain({
 
   // Initialize chunk manager
   useEffect(() => {
-    const manager = new ChunkManager(
-      { renderDistance },
-      { seed }
-    );
+    // Ensure gameplay queries and rendering share the same manager instance.
+    resetChunkManager();
+    const manager = getChunkManager({ renderDistance }, { seed });
 
     // Set up callbacks for mesh updates
     manager.onChunkMeshReady = (key, mesh) => {
@@ -134,8 +122,8 @@ export function VoxelTerrain({
     manager.update(0, 0);
 
     return () => {
-      manager.dispose();
       managerRef.current = null;
+      resetChunkManager();
     };
   }, [seed, renderDistance]);
 
@@ -152,11 +140,12 @@ export function VoxelTerrain({
 
     const playerPos = getPlayerPosition();
 
-    // Only update if player moved more than half a chunk
+    // Update if player moved enough to risk hitting unloaded terrain.
+    // Keep this conservative since gameplay queries depend on loaded chunks.
     const dx = Math.abs(playerPos.x - lastUpdatePos.current.x);
     const dz = Math.abs(playerPos.z - lastUpdatePos.current.z);
 
-    if (dx > CHUNK_SIZE / 2 || dz > CHUNK_SIZE / 2) {
+    if (dx > CHUNK_SIZE / 4 || dz > CHUNK_SIZE / 4) {
       manager.update(playerPos.x, playerPos.z);
       lastUpdatePos.current = { x: playerPos.x, z: playerPos.z };
     }
