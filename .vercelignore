@@ -1,0 +1,16 @@
+# Ignore Python API (not needed - game is client-side only)
+api/
+*.py
+requirements.txt
+pyproject.toml
+uv.lock
+
+# Ignore test files
+*.test.ts
+*.test.tsx
+__tests__/
+test-*.mjs
+
+# Ignore development files
+*.md
+!README.md
