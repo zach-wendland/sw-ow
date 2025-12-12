@@ -4,19 +4,6 @@
   "framework": "nextjs",
   "buildCommand": "next build",
   "installCommand": "npm ci",
-  "functions": {
-    "api/**/*.py": {
-      "runtime": "@vercel/python@3.12",
-      "maxDuration": 30,
-      "memory": 1024
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/py/:path*",
-      "destination": "/api/index.py"
-    }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",
