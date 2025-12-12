@@ -8,7 +8,7 @@ import { Mesh, Vector3 } from "three";
 import { Enemy as EnemyType, getEnemyConfig } from "@/types/enemies";
 import { useEnemyStore } from "@/lib/stores/useEnemyStore";
 import { usePlayerStore } from "@/lib/stores/usePlayerStore";
-import { useCombatStore } from "@/lib/stores/useCombatStore";
+import { useCombatStore, COMBAT_FEEL } from "@/lib/stores/useCombatStore";
 
 interface EnemyProps {
   enemyId: string;
@@ -18,6 +18,8 @@ export function Enemy({ enemyId }: EnemyProps) {
   const meshRef = useRef<Mesh>(null);
   // Reuse Vector3 to avoid GC pressure (60 allocations/sec per enemy otherwise)
   const tempPlayerPos = useRef(new Vector3());
+  // Track windup timer for attack telegraph
+  const windupTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Only subscribe to non-position data to avoid re-render loops
   // Position is read directly in useFrame like Player.tsx does
@@ -61,6 +63,9 @@ export function Enemy({ enemyId }: EnemyProps) {
   const calculateEnemyDamage = useCombatStore((state) => state.calculateEnemyDamage);
   const addDamageNumber = useCombatStore((state) => state.addDamageNumber);
   const addCombatEvent = useCombatStore((state) => state.addCombatEvent);
+  const getTimeScale = useCombatStore((state) => state.getTimeScale);
+  const triggerHitStop = useCombatStore((state) => state.triggerHitStop);
+  const triggerScreenShake = useCombatStore((state) => state.triggerScreenShake);
 
   const removeEnemy = useEnemyStore((state) => state.removeEnemy);
 
@@ -79,6 +84,15 @@ export function Enemy({ enemyId }: EnemyProps) {
     }
   }, [isDead, enemy?.id, removeEnemy]);
 
+  // Cleanup windup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (windupTimerRef.current) {
+        clearTimeout(windupTimerRef.current);
+      }
+    };
+  }, []);
+
   // Initialize mesh position from store
   useEffect(() => {
     const fullEnemy = getEnemyData();
@@ -95,13 +109,20 @@ export function Enemy({ enemyId }: EnemyProps) {
     const fullEnemy = getEnemyData();
     if (!fullEnemy) return;
 
+    // Check hitstop - pause all behavior during hitstop
+    const timeScale = getTimeScale();
+    if (timeScale === 0) return;
+
+    // Apply time scale to delta for consistent timing
+    const scaledDelta = delta * timeScale;
+
     const playerPosition = getPlayerPosition();
     const enemyPos = meshRef.current.position;
     // Reuse Vector3 instead of creating new one every frame
     tempPlayerPos.current.set(playerPosition.x, playerPosition.y, playerPosition.z);
     const distanceToPlayer = enemyPos.distanceTo(tempPlayerPos.current);
 
-    // State machine
+    // State machine with windup/recovery telegraph system
     switch (fullEnemy.state) {
       case "idle":
         // Check if player is in detection range
@@ -115,7 +136,7 @@ export function Enemy({ enemyId }: EnemyProps) {
         // Move towards player
         if (distanceToPlayer > config.attackRange) {
           const direction = tempPlayerPos.current.clone().sub(enemyPos).normalize();
-          const moveDistance = config.speed * delta;
+          const moveDistance = config.speed * scaledDelta;
 
           // Update mesh position
           meshRef.current.position.x += direction.x * moveDistance;
@@ -124,7 +145,51 @@ export function Enemy({ enemyId }: EnemyProps) {
           // Face player
           meshRef.current.rotation.y = Math.atan2(direction.x, direction.z);
         } else {
-          setEnemyState(fullEnemy.id, "attack");
+          // Start attack - transition to windup state first (telegraph)
+          const now = Date.now();
+          const timeSinceLastAttack = (now - fullEnemy.lastAttackTime) / 1000;
+
+          if (timeSinceLastAttack >= config.attackCooldown) {
+            setEnemyState(fullEnemy.id, "windup");
+            recordEnemyAttack(fullEnemy.id); // Mark attack start time
+
+            // Schedule the actual attack after windup time
+            windupTimerRef.current = setTimeout(() => {
+              const currentEnemy = getEnemyData();
+              if (!currentEnemy || currentEnemy.state !== "windup") return;
+
+              // Check if player still in range
+              const currentPlayerPos = getPlayerPosition();
+              const currentEnemyPos = meshRef.current?.position;
+              if (!currentEnemyPos) return;
+
+              tempPlayerPos.current.set(currentPlayerPos.x, currentPlayerPos.y, currentPlayerPos.z);
+              const currentDistance = currentEnemyPos.distanceTo(tempPlayerPos.current);
+
+              if (currentDistance <= config.attackRange * 1.3) {
+                // Deal damage
+                const damage = calculateEnemyDamage(currentEnemy.type, 0);
+                takeDamage(damage);
+
+                addDamageNumber(damage, currentPlayerPos, false, false);
+                addCombatEvent("damage", `${config.name} hits you for ${damage} damage!`);
+
+                // Trigger screen shake for player being hit
+                triggerScreenShake(0.15, 150);
+              }
+
+              // Transition to recovery state
+              setEnemyState(currentEnemy.id, "recovery");
+
+              // After recovery, go back to chase or attack
+              setTimeout(() => {
+                const afterRecoveryEnemy = getEnemyData();
+                if (afterRecoveryEnemy && afterRecoveryEnemy.state === "recovery") {
+                  setEnemyState(afterRecoveryEnemy.id, "chase");
+                }
+              }, config.recoveryTime);
+            }, config.windupTime);
+          }
         }
 
         // Lost player
@@ -134,31 +199,35 @@ export function Enemy({ enemyId }: EnemyProps) {
         }
         break;
 
-      case "attack":
-        // Face player
-        const dir = tempPlayerPos.current.clone().sub(enemyPos).normalize();
-        meshRef.current.rotation.y = Math.atan2(dir.x, dir.z);
+      case "windup":
+        // Face player during windup (tracking)
+        const windupDir = tempPlayerPos.current.clone().sub(enemyPos).normalize();
+        meshRef.current.rotation.y = Math.atan2(windupDir.x, windupDir.z);
 
-        // Check if can attack
-        const now = Date.now();
-        const timeSinceLastAttack = (now - fullEnemy.lastAttackTime) / 1000;
-
-        if (timeSinceLastAttack >= config.attackCooldown) {
-          if (distanceToPlayer <= config.attackRange) {
-            // Attack player
-            const damage = calculateEnemyDamage(fullEnemy.type, 0);
-            takeDamage(damage);
-            recordEnemyAttack(fullEnemy.id);
-
-            addDamageNumber(damage, playerPosition, false, false);
-            addCombatEvent("damage", `${config.name} hits you for ${damage} damage!`);
+        // Can be interrupted by player moving far away
+        if (distanceToPlayer > config.attackRange * 2) {
+          if (windupTimerRef.current) {
+            clearTimeout(windupTimerRef.current);
+            windupTimerRef.current = null;
           }
-        }
-
-        // Player moved out of range
-        if (distanceToPlayer > config.attackRange * 1.2) {
           setEnemyState(fullEnemy.id, "chase");
         }
+        break;
+
+      case "recovery":
+        // Enemy is vulnerable during recovery - can't move or attack
+        // Just face player
+        const recoveryDir = tempPlayerPos.current.clone().sub(enemyPos).normalize();
+        meshRef.current.rotation.y = Math.atan2(recoveryDir.x, recoveryDir.z);
+        break;
+
+      case "attack":
+        // Legacy state - redirect to new system
+        setEnemyState(fullEnemy.id, "chase");
+        break;
+
+      case "staggered":
+        // Enemy is staggered - can't do anything (future: implement stagger system)
         break;
 
       case "dead":
@@ -190,13 +259,28 @@ export function Enemy({ enemyId }: EnemyProps) {
     }
   };
 
-  // Visual state based on enemy state
+  // Visual state based on enemy state - enhanced for combat feel
   const getEmissiveColor = () => {
     if (isDead) return "#000000";
     if (isSelected) return "#ffff00";
+    // WINDUP: Bright red flash - DANGER telegraph!
+    if (enemy.state === "windup") return "#ff0000";
+    // RECOVERY: Dim blue - vulnerable, punish window
+    if (enemy.state === "recovery") return "#4444ff";
+    // STAGGERED: Bright white - super vulnerable
+    if (enemy.state === "staggered") return "#ffffff";
     if (enemy.state === "attack") return "#ff0000";
     if (enemy.state === "chase") return "#ff6600";
     return "#000000";
+  };
+
+  // Emissive intensity varies by state for visual feedback
+  const getEmissiveIntensity = () => {
+    if (isSelected) return 0.3;
+    if (enemy.state === "windup") return 0.8; // Bright flash during windup
+    if (enemy.state === "recovery") return 0.2;
+    if (enemy.state === "staggered") return 0.6;
+    return 0.1;
   };
 
   return (
@@ -222,7 +306,7 @@ export function Enemy({ enemyId }: EnemyProps) {
         <meshStandardMaterial
           color={config.color}
           emissive={getEmissiveColor()}
-          emissiveIntensity={isSelected ? 0.3 : 0.1}
+          emissiveIntensity={getEmissiveIntensity()}
           transparent={isDead}
           opacity={isDead ? 0.5 : 1}
         />

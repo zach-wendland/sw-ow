@@ -8,7 +8,7 @@ export interface Position {
   z: number;
 }
 
-export type EnemyState = 'idle' | 'patrol' | 'chase' | 'attack' | 'dead';
+export type EnemyState = 'idle' | 'patrol' | 'chase' | 'attack' | 'windup' | 'recovery' | 'staggered' | 'dead';
 
 export interface EnemyTypeConfig {
   id: string;
@@ -24,6 +24,9 @@ export interface EnemyTypeConfig {
   color: string; // For placeholder model
   scale: number;
   lootTable: string;
+  // Combat feel - attack telegraph
+  windupTime: number; // ms before attack lands (telegraph window)
+  recoveryTime: number; // ms after attack where enemy is vulnerable
 }
 
 export interface Enemy {
@@ -60,6 +63,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     color: '#6B4423',
     scale: 0.8,
     lootTable: 'wolf',
+    windupTime: 300, // Fast attacker - short telegraph
+    recoveryTime: 400,
   },
   bandit: {
     id: 'bandit',
@@ -75,6 +80,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     color: '#8B0000',
     scale: 1,
     lootTable: 'bandit',
+    windupTime: 400, // Medium telegraph
+    recoveryTime: 500,
   },
   golem: {
     id: 'golem',
@@ -90,6 +97,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     color: '#4A4A4A',
     scale: 1.5,
     lootTable: 'golem',
+    windupTime: 800, // Slow heavy hitter - long telegraph
+    recoveryTime: 1000, // Long recovery = big punish window
   },
   skeleton: {
     id: 'skeleton',
@@ -105,6 +114,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     color: '#E8E8E8',
     scale: 1,
     lootTable: 'skeleton',
+    windupTime: 350, // Medium-fast
+    recoveryTime: 450,
   },
   slime: {
     id: 'slime',
@@ -120,6 +131,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     color: '#32CD32',
     scale: 0.6,
     lootTable: 'slime',
+    windupTime: 500, // Slow, easy to read
+    recoveryTime: 600,
   },
 };
 

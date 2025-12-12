@@ -6,7 +6,7 @@ import { useKeyboardControls } from "@react-three/drei";
 import { Vector3, type Mesh } from "three";
 import { usePlayerStore } from "@/lib/stores/usePlayerStore";
 import { useEnemyStore } from "@/lib/stores/useEnemyStore";
-import { useCombatStore } from "@/lib/stores/useCombatStore";
+import { useCombatStore, COMBAT_FEEL } from "@/lib/stores/useCombatStore";
 
 interface PlayerProps {
   position?: [number, number, number];
@@ -50,6 +50,9 @@ export function Player({ position = [0, 0, 0] }: PlayerProps) {
   const addDamageNumber = useCombatStore((state) => state.addDamageNumber);
   const addCombatEvent = useCombatStore((state) => state.addCombatEvent);
   const incrementCombo = useCombatStore((state) => state.incrementCombo);
+  const triggerHitStop = useCombatStore((state) => state.triggerHitStop);
+  const triggerScreenShake = useCombatStore((state) => state.triggerScreenShake);
+  const getTimeScale = useCombatStore((state) => state.getTimeScale);
 
   const [, getKeys] = useKeyboardControls();
 
@@ -80,18 +83,32 @@ export function Player({ position = [0, 0, 0] }: PlayerProps) {
         // Show damage number
         addDamageNumber(damage, target.position, isCritical, false);
 
-        // Combat log
+        // COMBAT FEEL: Trigger hitstop and screen shake based on hit type
         if (result.killed) {
+          // Big hit - kill effect
+          triggerHitStop(COMBAT_FEEL.HITSTOP_FRAMES_KILL);
+          triggerScreenShake(0.3, 200); // Heavy shake for kills
           addCombatEvent(
             "kill",
             `You killed the enemy! +${result.xp} XP, +${result.gold} Gold`
           );
           addXP(result.xp);
           addGold(result.gold);
-        } else {
+        } else if (isCritical) {
+          // Critical hit
+          triggerHitStop(COMBAT_FEEL.HITSTOP_FRAMES_CRITICAL);
+          triggerScreenShake(0.2, 150); // Medium shake for crits
           addCombatEvent(
             "damage",
-            `You hit for ${damage}${isCritical ? " (CRIT!)" : ""} damage!`
+            `CRITICAL HIT for ${damage} damage!`
+          );
+        } else {
+          // Normal hit
+          triggerHitStop(COMBAT_FEEL.HITSTOP_FRAMES_NORMAL);
+          triggerScreenShake(0.1, 100); // Light shake for normal hits
+          addCombatEvent(
+            "damage",
+            `You hit for ${damage} damage!`
           );
         }
 
@@ -116,6 +133,8 @@ export function Player({ position = [0, 0, 0] }: PlayerProps) {
     addXP,
     addGold,
     incrementCombo,
+    triggerHitStop,
+    triggerScreenShake,
   ]);
 
   // Initialize position
@@ -140,6 +159,12 @@ export function Player({ position = [0, 0, 0] }: PlayerProps) {
 
   useFrame((_, delta) => {
     if (!meshRef.current || isDead) return;
+
+    // Check hitstop - pause during hitstop for impact feel
+    const timeScale = getTimeScale();
+    if (timeScale === 0) return;
+
+    const scaledDelta = delta * timeScale;
 
     const { forward, backward, left, right, jump, sprint, attack } = getKeys();
 
@@ -167,13 +192,13 @@ export function Player({ position = [0, 0, 0] }: PlayerProps) {
 
     // Apply gravity
     if (!isGroundedRef.current) {
-      velocityRef.current.y += GRAVITY * delta;
+      velocityRef.current.y += GRAVITY * scaledDelta;
     }
 
     // Update position
-    meshRef.current.position.x += velocityRef.current.x * delta;
-    meshRef.current.position.y += velocityRef.current.y * delta;
-    meshRef.current.position.z += velocityRef.current.z * delta;
+    meshRef.current.position.x += velocityRef.current.x * scaledDelta;
+    meshRef.current.position.y += velocityRef.current.y * scaledDelta;
+    meshRef.current.position.z += velocityRef.current.z * scaledDelta;
 
     // Ground check (simple floor at y=0)
     if (meshRef.current.position.y <= 1) {
@@ -191,9 +216,9 @@ export function Player({ position = [0, 0, 0] }: PlayerProps) {
 
     // Attack animation (scale pulse)
     if (isPlayerAttacking) {
-      attackAnimRef.current = Math.min(attackAnimRef.current + delta * 10, 1);
+      attackAnimRef.current = Math.min(attackAnimRef.current + scaledDelta * 10, 1);
     } else {
-      attackAnimRef.current = Math.max(attackAnimRef.current - delta * 5, 0);
+      attackAnimRef.current = Math.max(attackAnimRef.current - scaledDelta * 5, 0);
     }
 
     // Update store

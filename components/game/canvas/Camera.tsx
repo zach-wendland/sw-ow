@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 import { usePlayerStore } from "@/lib/stores/usePlayerStore";
+import { useCombatStore } from "@/lib/stores/useCombatStore";
 
 const CAMERA_DISTANCE = 10;
 const CAMERA_HEIGHT = 4;
@@ -15,6 +16,7 @@ export function ThirdPersonCamera() {
   const currentPosition = useRef(new Vector3(0, 5, 10));
 
   const playerPosition = usePlayerStore((state) => state.position);
+  const getScreenShake = useCombatStore((state) => state.getScreenShake);
 
   useFrame(() => {
     // Calculate target camera position behind player
@@ -26,10 +28,21 @@ export function ThirdPersonCamera() {
 
     // Smoothly interpolate camera position
     currentPosition.current.lerp(targetPosition.current, CAMERA_LERP);
-    camera.position.copy(currentPosition.current);
 
-    // Look at player
-    camera.lookAt(playerPosition.x, playerPosition.y + 1, playerPosition.z);
+    // Apply screen shake offset
+    const shake = getScreenShake();
+    camera.position.set(
+      currentPosition.current.x + shake.x,
+      currentPosition.current.y + shake.y,
+      currentPosition.current.z
+    );
+
+    // Look at player (with slight shake offset for more dramatic effect)
+    camera.lookAt(
+      playerPosition.x + shake.x * 0.5,
+      playerPosition.y + 1 + shake.y * 0.5,
+      playerPosition.z
+    );
   });
 
   return null;

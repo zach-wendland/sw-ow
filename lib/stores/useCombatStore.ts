@@ -32,6 +32,13 @@ interface CombatStore {
   comboCount: number;
   lastComboTime: number;
 
+  // Combat Feel - Hitstop
+  hitStopEndTime: number;
+
+  // Combat Feel - Screen Shake
+  screenShakeIntensity: number;
+  screenShakeEndTime: number;
+
   // Actions - Player Attack
   startPlayerAttack: () => boolean;
   endPlayerAttack: () => void;
@@ -58,6 +65,12 @@ interface CombatStore {
   incrementCombo: () => void;
   resetCombo: () => void;
 
+  // Actions - Combat Feel
+  triggerHitStop: (frames: number) => void;
+  triggerScreenShake: (intensity: number, durationMs: number) => void;
+  getTimeScale: () => number;
+  getScreenShake: () => { x: number; y: number };
+
   // Calculations
   calculatePlayerDamage: (
     baseStrength: number,
@@ -81,6 +94,13 @@ const COMBO_TIMEOUT = 3000; // ms to reset combo
 const MAX_COMBAT_LOG_ENTRIES = 50;
 const DAMAGE_NUMBER_LIFETIME = 1500; // ms
 
+// Combat Feel Constants
+const FRAME_DURATION_MS = 1000 / 60; // ~16.67ms per frame at 60fps
+const HITSTOP_FRAMES_NORMAL = 3; // 3 frames (~50ms) for normal hits
+const HITSTOP_FRAMES_CRITICAL = 6; // 6 frames (~100ms) for critical hits
+const HITSTOP_FRAMES_KILL = 8; // 8 frames (~133ms) for kills
+const SCREEN_SHAKE_DECAY = 0.9; // How fast shake diminishes per frame
+
 // ============================================================================
 // STORE
 // ============================================================================
@@ -97,6 +117,11 @@ export const useCombatStore = create<CombatStore>()(
     combatLog: [],
     comboCount: 0,
     lastComboTime: 0,
+
+    // Combat Feel State
+    hitStopEndTime: 0,
+    screenShakeIntensity: 0,
+    screenShakeEndTime: 0,
 
     // ========================================
     // Player Attack Actions
@@ -219,6 +244,66 @@ export const useCombatStore = create<CombatStore>()(
     },
 
     // ========================================
+    // Combat Feel Actions
+    // ========================================
+
+    /**
+     * Trigger hitstop - freezes game time for impact feel
+     * @param frames Number of frames to pause (at 60fps)
+     */
+    triggerHitStop: (frames: number) => {
+      const durationMs = frames * FRAME_DURATION_MS;
+      set({ hitStopEndTime: Date.now() + durationMs });
+    },
+
+    /**
+     * Trigger screen shake for visual impact
+     * @param intensity Shake magnitude (0.1 = subtle, 0.5 = heavy)
+     * @param durationMs How long the shake lasts
+     */
+    triggerScreenShake: (intensity: number, durationMs: number) => {
+      set({
+        screenShakeIntensity: intensity,
+        screenShakeEndTime: Date.now() + durationMs,
+      });
+    },
+
+    /**
+     * Get current time scale (0 during hitstop, 1 otherwise)
+     * Used to pause animations/movement during hit impact
+     */
+    getTimeScale: () => {
+      const now = Date.now();
+      const { hitStopEndTime } = get();
+      return now < hitStopEndTime ? 0 : 1;
+    },
+
+    /**
+     * Get current screen shake offset
+     * Returns random offset based on intensity, decaying over time
+     */
+    getScreenShake: () => {
+      const now = Date.now();
+      const { screenShakeIntensity, screenShakeEndTime } = get();
+
+      if (now >= screenShakeEndTime || screenShakeIntensity === 0) {
+        return { x: 0, y: 0 };
+      }
+
+      // Calculate remaining intensity based on time
+      const remainingTime = screenShakeEndTime - now;
+      const totalDuration = screenShakeEndTime - (screenShakeEndTime - 200); // Assume 200ms default
+      const decay = Math.min(remainingTime / 200, 1); // Decay over time
+      const currentIntensity = screenShakeIntensity * decay;
+
+      // Random offset within intensity range
+      return {
+        x: (Math.random() - 0.5) * 2 * currentIntensity,
+        y: (Math.random() - 0.5) * 2 * currentIntensity,
+      };
+    },
+
+    // ========================================
     // Calculations
     // ========================================
     calculatePlayerDamage: (baseStrength, weaponDamage, level) => {
@@ -269,3 +354,14 @@ export const selectCanAttack = (state: CombatStore) => state.canPlayerAttack();
 export const selectComboCount = (state: CombatStore) => state.comboCount;
 export const selectDamageNumbers = (state: CombatStore) => state.damageNumbers;
 export const selectCombatLog = (state: CombatStore) => state.combatLog;
+
+// ============================================================================
+// EXPORTED CONSTANTS (for use in components)
+// ============================================================================
+
+export const COMBAT_FEEL = {
+  HITSTOP_FRAMES_NORMAL,
+  HITSTOP_FRAMES_CRITICAL,
+  HITSTOP_FRAMES_KILL,
+  FRAME_DURATION_MS,
+} as const;
