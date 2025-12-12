@@ -1,100 +1,116 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-  }
+@theme {
+  --color-background: hsl(0 0% 100%);
+  --color-foreground: hsl(222.2 84% 4.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(222.2 84% 4.9%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(222.2 84% 4.9%);
+  --color-primary: hsl(222.2 47.4% 11.2%);
+  --color-primary-foreground: hsl(210 40% 98%);
+  --color-secondary: hsl(210 40% 96.1%);
+  --color-secondary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-muted: hsl(210 40% 96.1%);
+  --color-muted-foreground: hsl(215.4 16.3% 46.9%);
+  --color-accent: hsl(210 40% 96.1%);
+  --color-accent-foreground: hsl(222.2 47.4% 11.2%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(210 40% 98%);
+  --color-border: hsl(214.3 31.8% 91.4%);
+  --color-input: hsl(214.3 31.8% 91.4%);
+  --color-ring: hsl(222.2 84% 4.9%);
+  --radius: 0.5rem;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+/* Dark mode overrides */
+.dark {
+  --color-background: hsl(222.2 84% 4.9%);
+  --color-foreground: hsl(210 40% 98%);
+  --color-card: hsl(222.2 84% 4.9%);
+  --color-card-foreground: hsl(210 40% 98%);
+  --color-popover: hsl(222.2 84% 4.9%);
+  --color-popover-foreground: hsl(210 40% 98%);
+  --color-primary: hsl(210 40% 98%);
+  --color-primary-foreground: hsl(222.2 47.4% 11.2%);
+  --color-secondary: hsl(217.2 32.6% 17.5%);
+  --color-secondary-foreground: hsl(210 40% 98%);
+  --color-muted: hsl(217.2 32.6% 17.5%);
+  --color-muted-foreground: hsl(215 20.2% 65.1%);
+  --color-accent: hsl(217.2 32.6% 17.5%);
+  --color-accent-foreground: hsl(210 40% 98%);
+  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground: hsl(210 40% 98%);
+  --color-border: hsl(217.2 32.6% 17.5%);
+  --color-input: hsl(217.2 32.6% 17.5%);
+  --color-ring: hsl(212.7 26.8% 83.9%);
+}
+
+/* Base styles */
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
 }
 
 /* Game-specific styles */
-@layer components {
-  .game-canvas {
-    @apply fixed inset-0 w-full h-full;
-  }
+.game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
 
-  .hud-overlay {
-    @apply fixed inset-0 pointer-events-none;
-  }
+.hud-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
 
-  .hud-interactive {
-    @apply pointer-events-auto;
-  }
+.hud-interactive {
+  pointer-events: auto;
+}
 
-  .health-bar {
-    @apply h-4 bg-red-900 rounded-full overflow-hidden;
-  }
+.health-bar {
+  height: 1rem;
+  background-color: rgb(127 29 29);
+  border-radius: 9999px;
+  overflow: hidden;
+}
 
-  .health-bar-fill {
-    @apply h-full bg-gradient-to-r from-red-600 to-red-500 transition-all duration-300;
-  }
+.health-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, rgb(220 38 38), rgb(239 68 68));
+  transition: all 300ms;
+}
 
-  .stamina-bar {
-    @apply h-3 bg-green-900 rounded-full overflow-hidden;
-  }
+.stamina-bar {
+  height: 0.75rem;
+  background-color: rgb(20 83 45);
+  border-radius: 9999px;
+  overflow: hidden;
+}
 
-  .stamina-bar-fill {
-    @apply h-full bg-gradient-to-r from-green-600 to-green-500 transition-all duration-300;
-  }
+.stamina-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, rgb(22 163 74), rgb(34 197 94));
+  transition: all 300ms;
+}
 
-  .xp-bar {
-    @apply h-2 bg-yellow-900 rounded-full overflow-hidden;
-  }
+.xp-bar {
+  height: 0.5rem;
+  background-color: rgb(113 63 18);
+  border-radius: 9999px;
+  overflow: hidden;
+}
 
-  .xp-bar-fill {
-    @apply h-full bg-gradient-to-r from-yellow-600 to-yellow-400 transition-all duration-500;
-  }
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(to right, rgb(202 138 4), rgb(250 204 21));
+  transition: all 500ms;
 }
 
 /* Hide scrollbars in game mode */
@@ -108,20 +124,32 @@
 
 /* Crosshair */
 .crosshair {
-  @apply fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2;
-  @apply w-4 h-4 pointer-events-none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 1rem;
+  height: 1rem;
+  pointer-events: none;
 }
 
 .crosshair::before,
 .crosshair::after {
   content: "";
-  @apply absolute bg-white/80;
+  position: absolute;
+  background-color: rgb(255 255 255 / 0.8);
 }
 
 .crosshair::before {
-  @apply w-full h-0.5 top-1/2 -translate-y-1/2;
+  width: 100%;
+  height: 0.125rem;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .crosshair::after {
-  @apply h-full w-0.5 left-1/2 -translate-x-1/2;
+  height: 100%;
+  width: 0.125rem;
+  left: 50%;
+  transform: translateX(-50%);
 }

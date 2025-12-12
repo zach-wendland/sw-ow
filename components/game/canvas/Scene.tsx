@@ -5,19 +5,20 @@ import { Stars, Sky } from "@react-three/drei";
 import { Player } from "../entities/Player";
 import { EnemyList } from "../entities/Enemy";
 import { DamageNumbers } from "../effects/DamageNumber";
-import { Terrain } from "../world/Terrain";
+import { VoxelTerrain } from "../world/VoxelTerrain";
 import { ThirdPersonCamera } from "./Camera";
 import { useEnemyStore } from "@/lib/stores/useEnemyStore";
 
 // Initial enemy spawns for testing
+// Y position is above voxel terrain (base height ~16-20)
 const INITIAL_SPAWNS = [
-  { type: "slime", position: { x: 10, y: 1, z: 10 } },
-  { type: "slime", position: { x: -8, y: 1, z: 12 } },
-  { type: "wolf", position: { x: 15, y: 1, z: -5 } },
-  { type: "wolf", position: { x: -12, y: 1, z: -10 } },
-  { type: "bandit", position: { x: 20, y: 1, z: 20 } },
-  { type: "skeleton", position: { x: -20, y: 1, z: 15 } },
-  { type: "golem", position: { x: 30, y: 1, z: 0 } },
+  { type: "slime", position: { x: 10, y: 20, z: 10 } },
+  { type: "slime", position: { x: -8, y: 20, z: 12 } },
+  { type: "wolf", position: { x: 15, y: 20, z: -5 } },
+  { type: "wolf", position: { x: -12, y: 20, z: -10 } },
+  { type: "bandit", position: { x: 20, y: 20, z: 20 } },
+  { type: "skeleton", position: { x: -20, y: 20, z: 15 } },
+  { type: "golem", position: { x: 30, y: 20, z: 0 } },
 ];
 
 export function Scene() {
@@ -70,7 +71,7 @@ export function Scene() {
       <fog attach="fog" args={["#1a1a2e", 50, 200]} />
 
       {/* World */}
-      <Terrain />
+      <VoxelTerrain seed={42} renderDistance={6} />
 
       {/* Enemies */}
       <EnemyList />
@@ -79,7 +80,7 @@ export function Scene() {
       <DamageNumbers />
 
       {/* Player */}
-      <Player position={[0, 2, 0]} />
+      <Player position={[0, 22, 0]} />
       <ThirdPersonCamera />
     </>
   );

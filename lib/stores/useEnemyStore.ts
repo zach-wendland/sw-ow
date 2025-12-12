@@ -39,6 +39,7 @@ interface EnemyStore {
   getEnemiesInRange: (position: Position, range: number) => Enemy[];
   getEnemiesArray: () => Enemy[];
   getAliveEnemies: () => Enemy[];
+  getEnemyIds: () => string[];
 }
 
 // ============================================================================
@@ -235,6 +236,10 @@ export const useEnemyStore = create<EnemyStore>()(
       return Array.from(get().enemies.values()).filter(
         (enemy) => enemy.state !== "dead"
       );
+    },
+
+    getEnemyIds: () => {
+      return Array.from(get().enemies.keys());
     },
   }))
 );

@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useMemo, useEffect } from "react";
+import { useRef, useMemo, useEffect, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import { Mesh, Vector3 } from "three";
@@ -10,14 +11,44 @@ import { usePlayerStore } from "@/lib/stores/usePlayerStore";
 import { useCombatStore } from "@/lib/stores/useCombatStore";
 
 interface EnemyProps {
-  enemy: EnemyType;
+  enemyId: string;
 }
 
-export function Enemy({ enemy }: EnemyProps) {
+export function Enemy({ enemyId }: EnemyProps) {
   const meshRef = useRef<Mesh>(null);
-  const config = useMemo(() => getEnemyConfig(enemy.type), [enemy.type]);
+  // Reuse Vector3 to avoid GC pressure (60 allocations/sec per enemy otherwise)
+  const tempPlayerPos = useRef(new Vector3());
 
-  const playerPosition = usePlayerStore((state) => state.position);
+  // Only subscribe to non-position data to avoid re-render loops
+  // Position is read directly in useFrame like Player.tsx does
+  const enemy = useEnemyStore(
+    useCallback(
+      (state) => {
+        const e = state.enemies.get(enemyId);
+        if (!e) return null;
+        // Return only data that should trigger re-renders
+        return {
+          id: e.id,
+          type: e.type,
+          health: e.health,
+          maxHealth: e.maxHealth,
+          state: e.state,
+          lastAttackTime: e.lastAttackTime,
+        };
+      },
+      [enemyId]
+    )
+  );
+
+  const config = useMemo(() => getEnemyConfig(enemy?.type || "slime"), [enemy?.type]);
+
+  // Get player position directly from store (not reactive) - same as Player.tsx
+  const getPlayerPosition = useCallback(() => usePlayerStore.getState().position, []);
+
+  // Get enemy position directly from store (not reactive) - same pattern as Player.tsx
+  const getEnemyData = useCallback(() => useEnemyStore.getState().enemies.get(enemyId), [enemyId]);
+
+  // Store actions (stable references)
   const setEnemyPosition = useEnemyStore((state) => state.setEnemyPosition);
   const setEnemyRotation = useEnemyStore((state) => state.setEnemyRotation);
   const setEnemyState = useEnemyStore((state) => state.setEnemyState);
@@ -33,105 +64,100 @@ export function Enemy({ enemy }: EnemyProps) {
 
   const removeEnemy = useEnemyStore((state) => state.removeEnemy);
 
-  const isSelected = selectedEnemyId === enemy.id;
-  const healthPercent = (enemy.health / enemy.maxHealth) * 100;
-  const isDead = enemy.state === "dead";
+  // Derived state (safe to compute before hooks since enemy might be undefined)
+  const isSelected = selectedEnemyId === enemyId;
+  const healthPercent = enemy ? (enemy.health / enemy.maxHealth) * 100 : 0;
+  const isDead = enemy?.state === "dead";
 
   // Handle death cleanup with proper timer management
   useEffect(() => {
-    if (isDead) {
+    if (isDead && enemy) {
       const timer = setTimeout(() => {
         removeEnemy(enemy.id);
       }, 2000);
-      return () => clearTimeout(timer); // Cleanup on unmount
+      return () => clearTimeout(timer);
     }
-  }, [isDead, enemy.id, removeEnemy]);
+  }, [isDead, enemy?.id, removeEnemy]);
 
-  // AI behavior
+  // Initialize mesh position from store
+  useEffect(() => {
+    const fullEnemy = getEnemyData();
+    if (fullEnemy && meshRef.current) {
+      meshRef.current.position.set(fullEnemy.position.x, fullEnemy.position.y, fullEnemy.position.z);
+      meshRef.current.rotation.y = fullEnemy.rotation;
+    }
+  }, [enemyId, getEnemyData]);
+
+  // AI behavior - same pattern as Player.tsx
   useFrame((_, delta) => {
-    if (!meshRef.current || isDead) return;
+    if (!meshRef.current || isDead || !enemy) return;
 
-    const enemyPos = new Vector3(
-      enemy.position.x,
-      enemy.position.y,
-      enemy.position.z
-    );
-    const playerPos = new Vector3(
-      playerPosition.x,
-      playerPosition.y,
-      playerPosition.z
-    );
-    const distanceToPlayer = enemyPos.distanceTo(playerPos);
+    const fullEnemy = getEnemyData();
+    if (!fullEnemy) return;
+
+    const playerPosition = getPlayerPosition();
+    const enemyPos = meshRef.current.position;
+    // Reuse Vector3 instead of creating new one every frame
+    tempPlayerPos.current.set(playerPosition.x, playerPosition.y, playerPosition.z);
+    const distanceToPlayer = enemyPos.distanceTo(tempPlayerPos.current);
 
     // State machine
-    switch (enemy.state) {
+    switch (fullEnemy.state) {
       case "idle":
         // Check if player is in detection range
         if (distanceToPlayer <= config.detectionRange) {
-          setEnemyState(enemy.id, "chase");
-          setEnemyTarget(enemy.id, "player");
+          setEnemyState(fullEnemy.id, "chase");
+          setEnemyTarget(fullEnemy.id, "player");
         }
         break;
 
       case "chase":
         // Move towards player
         if (distanceToPlayer > config.attackRange) {
-          const direction = playerPos.clone().sub(enemyPos).normalize();
+          const direction = tempPlayerPos.current.clone().sub(enemyPos).normalize();
           const moveDistance = config.speed * delta;
 
-          const newPos = {
-            x: enemy.position.x + direction.x * moveDistance,
-            y: enemy.position.y,
-            z: enemy.position.z + direction.z * moveDistance,
-          };
-          setEnemyPosition(enemy.id, newPos);
+          // Update mesh position
+          meshRef.current.position.x += direction.x * moveDistance;
+          meshRef.current.position.z += direction.z * moveDistance;
 
           // Face player
-          const angle = Math.atan2(direction.x, direction.z);
-          setEnemyRotation(enemy.id, angle);
-
-          // Update mesh position
-          meshRef.current.position.set(newPos.x, newPos.y, newPos.z);
+          meshRef.current.rotation.y = Math.atan2(direction.x, direction.z);
         } else {
-          // In attack range
-          setEnemyState(enemy.id, "attack");
+          setEnemyState(fullEnemy.id, "attack");
         }
 
         // Lost player
         if (distanceToPlayer > config.detectionRange * 1.5) {
-          setEnemyState(enemy.id, "idle");
-          setEnemyTarget(enemy.id, null);
+          setEnemyState(fullEnemy.id, "idle");
+          setEnemyTarget(fullEnemy.id, null);
         }
         break;
 
       case "attack":
         // Face player
-        const dir = playerPos.clone().sub(enemyPos).normalize();
-        const attackAngle = Math.atan2(dir.x, dir.z);
-        setEnemyRotation(enemy.id, attackAngle);
+        const dir = tempPlayerPos.current.clone().sub(enemyPos).normalize();
+        meshRef.current.rotation.y = Math.atan2(dir.x, dir.z);
 
         // Check if can attack
         const now = Date.now();
-        const timeSinceLastAttack = (now - enemy.lastAttackTime) / 1000;
+        const timeSinceLastAttack = (now - fullEnemy.lastAttackTime) / 1000;
 
         if (timeSinceLastAttack >= config.attackCooldown) {
           if (distanceToPlayer <= config.attackRange) {
             // Attack player
-            const damage = calculateEnemyDamage(enemy.type, 0);
+            const damage = calculateEnemyDamage(fullEnemy.type, 0);
             takeDamage(damage);
-            recordEnemyAttack(enemy.id);
+            recordEnemyAttack(fullEnemy.id);
 
             addDamageNumber(damage, playerPosition, false, false);
-            addCombatEvent(
-              "damage",
-              `${config.name} hits you for ${damage} damage!`
-            );
+            addCombatEvent("damage", `${config.name} hits you for ${damage} damage!`);
           }
         }
 
         // Player moved out of range
         if (distanceToPlayer > config.attackRange * 1.2) {
-          setEnemyState(enemy.id, "chase");
+          setEnemyState(fullEnemy.id, "chase");
         }
         break;
 
@@ -139,7 +165,22 @@ export function Enemy({ enemy }: EnemyProps) {
         // Do nothing, wait for removal
         break;
     }
+
+    // Update store every frame - same as Player.tsx does
+    setEnemyPosition(fullEnemy.id, {
+      x: meshRef.current.position.x,
+      y: meshRef.current.position.y,
+      z: meshRef.current.position.z,
+    });
+    setEnemyRotation(fullEnemy.id, meshRef.current.rotation.y);
   });
+
+  // Early return after all hooks if enemy doesn't exist
+  if (!enemy) return null;
+
+  // Get full enemy data for rendering (position not in reactive subscription)
+  const fullEnemy = getEnemyData();
+  if (!fullEnemy) return null;
 
   // Click to select
   const handleClick = (e: any) => {
@@ -159,13 +200,12 @@ export function Enemy({ enemy }: EnemyProps) {
   };
 
   return (
-    <group
-      position={[enemy.position.x, enemy.position.y, enemy.position.z]}
-      rotation={[0, enemy.rotation, 0]}
-    >
-      {/* Enemy mesh */}
+    <group>
+      {/* Enemy mesh - position controlled in useFrame, initial position from store */}
       <mesh
         ref={meshRef}
+        position={[fullEnemy.position.x, fullEnemy.position.y, fullEnemy.position.z]}
+        rotation={[0, fullEnemy.rotation, 0]}
         onClick={handleClick}
         castShadow
         receiveShadow
@@ -188,10 +228,14 @@ export function Enemy({ enemy }: EnemyProps) {
         />
       </mesh>
 
-      {/* Health bar (only show when damaged or selected) */}
-      {!isDead && (healthPercent < 100 || isSelected) && (
+      {/* Health bar (only show when damaged or selected) - follows mesh via Html tracking */}
+      {!isDead && (healthPercent < 100 || isSelected) && meshRef.current && (
         <Html
-          position={[0, 2, 0]}
+          position={[
+            meshRef.current.position.x,
+            meshRef.current.position.y + 2,
+            meshRef.current.position.z,
+          ]}
           center
           distanceFactor={15}
           occlude={false}
@@ -232,9 +276,16 @@ export function Enemy({ enemy }: EnemyProps) {
         </Html>
       )}
 
-      {/* Selection indicator */}
-      {isSelected && !isDead && (
-        <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      {/* Selection indicator - follows mesh */}
+      {isSelected && !isDead && meshRef.current && (
+        <mesh
+          position={[
+            meshRef.current.position.x,
+            0.1,
+            meshRef.current.position.z,
+          ]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
           <ringGeometry args={[0.8, 1, 32]} />
           <meshBasicMaterial color="#ffff00" transparent opacity={0.5} />
         </mesh>
@@ -248,12 +299,16 @@ export function Enemy({ enemy }: EnemyProps) {
 // ============================================================================
 
 export function EnemyList() {
-  const enemies = useEnemyStore((state) => state.getEnemiesArray());
+  // Use useShallow to ensure referential stability of the array
+  // This prevents infinite re-renders in React 19 with Zustand 5
+  const enemyIds = useEnemyStore(
+    useShallow((state) => Array.from(state.enemies.keys()))
+  );
 
   return (
     <>
-      {enemies.map((enemy) => (
-        <Enemy key={enemy.id} enemy={enemy} />
+      {enemyIds.map((id) => (
+        <Enemy key={id} enemyId={id} />
       ))}
     </>
   );

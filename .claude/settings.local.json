@@ -13,7 +13,21 @@
       "Bash(find:*)",
       "Bash(npm install:*)",
       "Bash(npm view:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nRemove Supabase, add combat system, switch to localStorage\n\nMajor changes:\n- Remove all Supabase dependencies and auth flow\n- Replace persistence with browser localStorage\n- Add combat system with enemies, attacks, and damage numbers\n- Game now runs fully offline as single-player\n\nRemoved:\n- Supabase client, server, and types\n- Auth pages (login, register, callback)\n- SQL migrations\n- Python Supabase service\n\nAdded:\n- lib/storage/localStorage.ts for game persistence\n- Combat stores (useCombatStore, useEnemyStore)\n- Enemy entity with health bars and death handling\n- Damage number effects\n- UI components (dialog, input, label)\n- Test infrastructure (vitest)\n\nModified:\n- usePlayerStore now saves to localStorage\n- auth-provider simplified to game context\n- characters/page uses localStorage\n- Fixed memory leak in enemy death cleanup\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nAdd comprehensive README documentation\n\n- What the app is and its features\n- Tech stack overview\n- Project structure\n- How the game loop and state management works\n- Instructions to run offline (dev and production)\n- Game controls and character attributes\n- Save data and environment variables\n- Browser compatibility\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(npm outdated:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill /F /PID 13100)",
+      "Bash(npm run build:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c \"taskkill /F /PID 15904\")",
+      "Bash(git commit:*)"
     ]
   }
 }

@@ -46,12 +46,6 @@ const nextConfig = {
       fullUrl: true,
     },
   },
-
-  // Webpack config for Three.js
-  webpack: (config) => {
-    config.externals = config.externals || [];
-    return config;
-  },
 };
 
 export default nextConfig;

@@ -7,6 +7,13 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock performance.now for timing tests
+if (typeof performance === 'undefined') {
+  (global as any).performance = {
+    now: () => Date.now(),
+  };
+}
+
 // Mock WebGL context
 class MockWebGLRenderingContext {}
 (global as any).WebGLRenderingContext = MockWebGLRenderingContext;
