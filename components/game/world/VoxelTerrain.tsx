@@ -202,18 +202,8 @@ interface VoxelDebugProps {
 }
 
 export function VoxelDebug({ manager }: VoxelDebugProps) {
-  const [stats, setStats] = useState({
-    loadedChunks: 0,
-    meshes: 0,
-    meshQueueLength: 0,
-    totalBlocks: 0,
-  });
-
-  useFrame(() => {
-    if (manager) {
-      setStats(manager.getStats());
-    }
-  });
-
-  return null; // Stats could be displayed in HUD if needed
+  // DISABLED: This was causing performance issues by running getStats() every frame
+  // Stats collection iterates all chunks which is expensive during gameplay
+  // Re-enable only if debug display is needed in HUD
+  return null;
 }

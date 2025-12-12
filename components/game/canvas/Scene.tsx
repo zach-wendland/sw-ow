@@ -96,8 +96,8 @@ export function Scene() {
       />
       <fog attach="fog" args={["#1a1a2e", 50, 200]} />
 
-      {/* World */}
-      <VoxelTerrain seed={42} renderDistance={6} />
+      {/* World - reduced render distance during tutorial for performance */}
+      <VoxelTerrain seed={42} renderDistance={tutorialActive ? 2 : 4} />
 
       {/* Enemies */}
       <EnemyList />

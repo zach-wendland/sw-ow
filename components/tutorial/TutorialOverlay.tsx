@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import {
   useTutorialStore,
   selectTutorialActive,
@@ -14,6 +14,7 @@ import { TutorialDialog } from "./TutorialDialog";
 import { TutorialObjective } from "./TutorialObjective";
 
 const TOTAL_STEPS = 6;
+const DETECTION_INTERVAL_MS = 200; // Check objectives every 200ms instead of every frame
 
 export function TutorialOverlay() {
   const isActive = useTutorialStore(selectTutorialActive);
@@ -25,15 +26,6 @@ export function TutorialOverlay() {
   const startPosition = useTutorialStore((state) => state.startPosition);
   const getStepIndex = useTutorialStore((state) => state.getStepIndex);
 
-  // Player state for detection
-  const playerPosition = usePlayerStore((state) => state.position);
-  const playerStamina = usePlayerStore((state) => state.stats.stamina);
-  const playerMaxStamina = usePlayerStore((state) => state.stats.maxStamina);
-
-  // Combat state for detection
-  const comboCount = useCombatStore((state) => state.comboCount);
-  const combatLogLength = useCombatStore((state) => state.combatLog.length);
-
   // Track if step objectives have been met
   const objectiveMetRef = useRef(false);
   const initialCombatLogLengthRef = useRef(0);
@@ -42,76 +34,81 @@ export function TutorialOverlay() {
   useEffect(() => {
     objectiveMetRef.current = false;
     // Record initial combat log length for combat step detection
-    initialCombatLogLengthRef.current = combatLogLength;
+    initialCombatLogLengthRef.current = useCombatStore.getState().combatLog.length;
   }, [currentStep]);
 
   // Record start position when movement step begins
   useEffect(() => {
     if (currentStep === "movement" && !startPosition) {
-      setStartPosition({ x: playerPosition.x, z: playerPosition.z });
+      const pos = usePlayerStore.getState().position;
+      setStartPosition({ x: pos.x, z: pos.z });
     }
-  }, [currentStep, startPosition, playerPosition, setStartPosition]);
+  }, [currentStep, startPosition, setStartPosition]);
 
-  // Step completion detection
+  // Polling-based objective detection (prevents re-render storm)
+  // Instead of subscribing to position/stamina/combo (which update every frame),
+  // we poll the stores at a fixed interval
   useEffect(() => {
     if (!isActive || showDialog || objectiveMetRef.current) return;
 
-    switch (currentStep) {
-      case "movement": {
-        // Check if player moved > 5 units from start
-        if (startPosition) {
-          const dx = playerPosition.x - startPosition.x;
-          const dz = playerPosition.z - startPosition.z;
-          const distance = Math.sqrt(dx * dx + dz * dz);
-          if (distance > 5) {
+    const checkObjective = () => {
+      if (objectiveMetRef.current) return;
+
+      // Get current state directly from stores (no subscription)
+      const playerState = usePlayerStore.getState();
+      const combatState = useCombatStore.getState();
+      const tutorialState = useTutorialStore.getState();
+
+      switch (currentStep) {
+        case "movement": {
+          const start = tutorialState.startPosition;
+          if (start) {
+            const dx = playerState.position.x - start.x;
+            const dz = playerState.position.z - start.z;
+            const distance = Math.sqrt(dx * dx + dz * dz);
+            if (distance > 5) {
+              objectiveMetRef.current = true;
+              setTimeout(() => nextStep(), 500);
+            }
+          }
+          break;
+        }
+
+        case "combat": {
+          if (combatState.combatLog.length > initialCombatLogLengthRef.current) {
             objectiveMetRef.current = true;
-            // Small delay before advancing
+            setTimeout(() => nextStep(), 800);
+          }
+          break;
+        }
+
+        case "stamina": {
+          const staminaPercent = (playerState.stats.stamina / playerState.stats.maxStamina) * 100;
+          if (staminaPercent < 50) {
+            objectiveMetRef.current = true;
             setTimeout(() => nextStep(), 500);
           }
+          break;
         }
-        break;
-      }
 
-      case "combat": {
-        // Check if player has dealt damage (combat log increased)
-        if (combatLogLength > initialCombatLogLengthRef.current) {
-          objectiveMetRef.current = true;
-          setTimeout(() => nextStep(), 800);
+        case "combo": {
+          if (combatState.comboCount >= 3) {
+            objectiveMetRef.current = true;
+            setTimeout(() => nextStep(), 500);
+          }
+          break;
         }
-        break;
       }
+    };
 
-      case "stamina": {
-        // Check if stamina dropped below 50%
-        const staminaPercent = (playerStamina / playerMaxStamina) * 100;
-        if (staminaPercent < 50) {
-          objectiveMetRef.current = true;
-          setTimeout(() => nextStep(), 500);
-        }
-        break;
-      }
+    // Initial check
+    checkObjective();
 
-      case "combo": {
-        // Check if combo reached 3+
-        if (comboCount >= 3) {
-          objectiveMetRef.current = true;
-          setTimeout(() => nextStep(), 500);
-        }
-        break;
-      }
-    }
-  }, [
-    isActive,
-    showDialog,
-    currentStep,
-    playerPosition,
-    startPosition,
-    playerStamina,
-    playerMaxStamina,
-    comboCount,
-    combatLogLength,
-    nextStep,
-  ]);
+    // Set up polling interval
+    const interval = setInterval(checkObjective, DETECTION_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [isActive, showDialog, currentStep, nextStep]);
 
   // Handle dialog continue
   const handleContinue = () => {
