@@ -177,12 +177,21 @@ export function Player({ position = [0, 0, 0] }: PlayerProps) {
     const moveX = (right ? 1 : 0) - (left ? 1 : 0);
     const moveZ = (backward ? 1 : 0) - (forward ? 1 : 0);
 
+    // Normalize diagonal movement to prevent sqrt(2) speed boost
+    let normalizedX = moveX;
+    let normalizedZ = moveZ;
+    if (moveX !== 0 && moveZ !== 0) {
+      const length = Math.sqrt(moveX * moveX + moveZ * moveZ);
+      normalizedX = moveX / length;
+      normalizedZ = moveZ / length;
+    }
+
     // Apply sprint multiplier
     const speed = sprint ? MOVE_SPEED * SPRINT_MULTIPLIER : MOVE_SPEED;
 
     // Update horizontal velocity
-    velocityRef.current.x = moveX * speed;
-    velocityRef.current.z = moveZ * speed;
+    velocityRef.current.x = normalizedX * speed;
+    velocityRef.current.z = normalizedZ * speed;
 
     // Handle jumping
     if (jump && isGroundedRef.current) {

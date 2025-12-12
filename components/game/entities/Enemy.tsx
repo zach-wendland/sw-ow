@@ -23,23 +23,21 @@ export function Enemy({ enemyId }: EnemyProps) {
 
   // Only subscribe to non-position data to avoid re-render loops
   // Position is read directly in useFrame like Player.tsx does
+  // Using useShallow to prevent infinite re-renders (shallow compares object properties)
   const enemy = useEnemyStore(
-    useCallback(
-      (state) => {
-        const e = state.enemies.get(enemyId);
-        if (!e) return null;
-        // Return only data that should trigger re-renders
-        return {
-          id: e.id,
-          type: e.type,
-          health: e.health,
-          maxHealth: e.maxHealth,
-          state: e.state,
-          lastAttackTime: e.lastAttackTime,
-        };
-      },
-      [enemyId]
-    )
+    useShallow((state) => {
+      const e = state.enemies.get(enemyId);
+      if (!e) return null;
+      // Return only data that should trigger re-renders
+      return {
+        id: e.id,
+        type: e.type,
+        health: e.health,
+        maxHealth: e.maxHealth,
+        state: e.state,
+        lastAttackTime: e.lastAttackTime,
+      };
+    })
   );
 
   const config = useMemo(() => getEnemyConfig(enemy?.type || "slime"), [enemy?.type]);

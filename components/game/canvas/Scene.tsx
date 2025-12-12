@@ -8,8 +8,9 @@ import { DamageNumbers } from "../effects/DamageNumber";
 import { VoxelTerrain } from "../world/VoxelTerrain";
 import { ThirdPersonCamera } from "./Camera";
 import { useEnemyStore } from "@/lib/stores/useEnemyStore";
+import { useTutorialStore, selectTutorialActive, selectCurrentStep } from "@/lib/stores/useTutorialStore";
 
-// Initial enemy spawns for testing
+// Initial enemy spawns for normal gameplay
 // Y position is above voxel terrain (base height ~16-20)
 const INITIAL_SPAWNS = [
   { type: "slime", position: { x: 10, y: 20, z: 10 } },
@@ -21,19 +22,44 @@ const INITIAL_SPAWNS = [
   { type: "golem", position: { x: 30, y: 20, z: 0 } },
 ];
 
+// Tutorial enemy spawns - weaker enemies closer to player
+const TUTORIAL_COMBAT_SPAWN = [
+  { type: "slime", position: { x: 5, y: 22, z: 5 } }, // Single weak enemy for combat step
+];
+
+const TUTORIAL_COMBO_SPAWN = [
+  { type: "slime", position: { x: 4, y: 22, z: 4 } }, // Enemy for combo practice
+];
+
 export function Scene() {
   const spawnEnemies = useEnemyStore((state) => state.spawnEnemies);
   const clearAllEnemies = useEnemyStore((state) => state.clearAllEnemies);
 
-  // Spawn initial enemies on mount
+  // Tutorial state
+  const tutorialActive = useTutorialStore(selectTutorialActive);
+  const currentStep = useTutorialStore(selectCurrentStep);
+
+  // Spawn enemies based on tutorial state
   useEffect(() => {
     clearAllEnemies();
-    spawnEnemies(INITIAL_SPAWNS);
+
+    if (tutorialActive) {
+      // During tutorial, only spawn enemies for specific steps
+      if (currentStep === "combat") {
+        spawnEnemies(TUTORIAL_COMBAT_SPAWN);
+      } else if (currentStep === "combo") {
+        spawnEnemies(TUTORIAL_COMBO_SPAWN);
+      }
+      // Other steps: no enemies
+    } else {
+      // Normal gameplay: spawn all enemies
+      spawnEnemies(INITIAL_SPAWNS);
+    }
 
     return () => {
       clearAllEnemies();
     };
-  }, [spawnEnemies, clearAllEnemies]);
+  }, [spawnEnemies, clearAllEnemies, tutorialActive, currentStep]);
 
   return (
     <>

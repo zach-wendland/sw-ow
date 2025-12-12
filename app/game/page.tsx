@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { usePlayerStore } from "@/lib/stores/usePlayerStore";
+import { useTutorialStore, selectHasCompletedTutorial } from "@/lib/stores/useTutorialStore";
 import { HUD } from "@/components/hud/HUD";
 import { LoadingScreen } from "@/components/game/LoadingScreen";
 import { Button } from "@/components/ui/button";
@@ -23,8 +24,11 @@ export default function GamePage() {
   const router = useRouter();
   const { isLoading: authLoading, activeCharacterId } = useAuth();
   const { loadCharacter, characterId, isLoading: charLoading, autoSave, saveCharacter } = usePlayerStore();
+  const hasCompletedTutorial = useTutorialStore(selectHasCompletedTutorial);
+  const startTutorial = useTutorialStore((state) => state.startTutorial);
 
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [tutorialChecked, setTutorialChecked] = useState(false);
 
   // Load character on mount
   useEffect(() => {
@@ -40,6 +44,19 @@ export default function GamePage() {
 
     load();
   }, [activeCharacterId, characterId, loadCharacter]);
+
+  // Start tutorial if not completed (runs once after character loads)
+  useEffect(() => {
+    if (characterId && !tutorialChecked) {
+      setTutorialChecked(true);
+      if (!hasCompletedTutorial) {
+        // Small delay to let the game fully load
+        setTimeout(() => {
+          startTutorial();
+        }, 500);
+      }
+    }
+  }, [characterId, hasCompletedTutorial, tutorialChecked, startTutorial]);
 
   // Auto-save interval
   useEffect(() => {

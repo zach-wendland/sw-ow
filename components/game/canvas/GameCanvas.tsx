@@ -1,9 +1,23 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { Scene } from "./Scene";
 import { KeyboardControls, type KeyboardControlsEntry } from "@react-three/drei";
+import { WebGLFallback } from "../WebGLFallback";
+
+function detectWebGL(): { supported: boolean; error?: string } {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
+    if (!gl) {
+      return { supported: false, error: "WebGL context not available" };
+    }
+    return { supported: true };
+  } catch (e) {
+    return { supported: false, error: String(e) };
+  }
+}
 
 // Define keyboard controls
 enum Controls {
@@ -29,6 +43,33 @@ const keyboardMap: KeyboardControlsEntry<Controls>[] = [
 ];
 
 export function GameCanvas() {
+  const [webglStatus, setWebglStatus] = useState<{
+    checked: boolean;
+    supported: boolean;
+    error?: string;
+  }>({ checked: false, supported: false });
+
+  useEffect(() => {
+    const result = detectWebGL();
+    setWebglStatus({
+      checked: true,
+      supported: result.supported,
+      error: result.error,
+    });
+  }, []);
+
+  if (!webglStatus.checked) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-900">
+        <p className="text-white">Checking graphics support...</p>
+      </div>
+    );
+  }
+
+  if (!webglStatus.supported) {
+    return <WebGLFallback error={webglStatus.error} />;
+  }
+
   return (
     <KeyboardControls map={keyboardMap}>
       <Canvas

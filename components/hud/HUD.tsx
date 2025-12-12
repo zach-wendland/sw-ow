@@ -9,6 +9,7 @@ import { Minimap } from "./Minimap";
 import { Crosshair } from "./Crosshair";
 import { PauseMenu } from "./PauseMenu";
 import { Notifications } from "./Notifications";
+import { TutorialOverlay } from "../tutorial/TutorialOverlay";
 
 export function HUD() {
   const { showHUD, showMinimap, showQuestTracker, isPaused, activeMenu } =
@@ -54,6 +55,9 @@ export function HUD() {
 
       {/* Pause Menu Overlay */}
       {isPaused && activeMenu === "settings" && <PauseMenu />}
+
+      {/* Tutorial Overlay */}
+      <TutorialOverlay />
     </div>
   );
 }
