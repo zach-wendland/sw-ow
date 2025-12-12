@@ -62,3 +62,6 @@ next-env.d.ts
 # Misc
 *.pem
 .cache/
+
+.vercel
+*.md

@@ -49,6 +49,68 @@ export interface Enemy {
 // ============================================================================
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
+  // ============================================================================
+  // STAR WARS DROID ENEMIES - First Mission "Echoes of the Clone Wars"
+  // ============================================================================
+
+  b1_droid: {
+    id: 'b1_droid',
+    name: 'B1 Battle Droid',
+    health: 30,
+    damage: 5,
+    xpReward: 15,
+    goldReward: { min: 5, max: 10 },
+    detectionRange: 15,
+    attackRange: 6,        // Ranged blaster
+    attackCooldown: 2,     // Slow fire rate - "Roger Roger"
+    speed: 2,
+    color: '#C4A46B',      // Tan/rust color
+    scale: 1,
+    lootTable: 'droid',
+    windupTime: 600,       // Clear telegraph - arm raises
+    recoveryTime: 800,     // Big punish window
+  },
+
+  b2_droid: {
+    id: 'b2_droid',
+    name: 'B2 Super Battle Droid',
+    health: 80,
+    damage: 12,
+    xpReward: 40,
+    goldReward: { min: 15, max: 25 },
+    detectionRange: 12,
+    attackRange: 4,        // Wrist blaster, closer range
+    attackCooldown: 1.5,
+    speed: 3,
+    color: '#4A5568',      // Gunmetal blue-gray
+    scale: 1.2,
+    lootTable: 'droid',
+    windupTime: 400,       // Faster telegraph
+    recoveryTime: 600,     // Smaller punish window
+  },
+
+  droideka: {
+    id: 'droideka',
+    name: 'Droideka',
+    health: 150,
+    damage: 20,
+    xpReward: 100,
+    goldReward: { min: 40, max: 60 },
+    detectionRange: 20,
+    attackRange: 8,        // Twin blasters, long range
+    attackCooldown: 0.8,   // Rapid fire bursts
+    speed: 2,              // Slow when deployed (not in wheel mode)
+    color: '#2D3748',      // Dark chrome
+    scale: 1.3,
+    lootTable: 'droid_boss',
+    windupTime: 300,       // Quick attacks
+    recoveryTime: 1500,    // Long recovery after burst - punish window!
+  },
+
+  // ============================================================================
+  // ORIGINAL FANTASY ENEMIES
+  // ============================================================================
+
   wolf: {
     id: 'wolf',
     name: 'Wild Wolf',

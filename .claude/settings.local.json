@@ -27,7 +27,15 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(cmd //c \"taskkill /F /PID 15904\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(npx playwright:*)",
+      "Bash(node test-game-ui.mjs:*)",
+      "Bash(node test-simple.mjs:*)",
+      "Bash(netstat:*)",
+      "Bash(node test-http.mjs:*)",
+      "Bash(timeout 20 node:*)",
+      "Bash(npx vercel:*)"
     ]
   }
 }

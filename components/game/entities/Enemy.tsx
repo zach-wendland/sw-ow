@@ -18,8 +18,12 @@ export function Enemy({ enemyId }: EnemyProps) {
   const meshRef = useRef<Mesh>(null);
   // Reuse Vector3 to avoid GC pressure (60 allocations/sec per enemy otherwise)
   const tempPlayerPos = useRef(new Vector3());
+  // FIX: Reusable direction vector to eliminate .clone() allocations in useFrame
+  const tempDirection = useRef(new Vector3());
   // Track windup timer for attack telegraph
   const windupTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // FIX: Track recovery timer to prevent memory leak on unmount
+  const recoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Only subscribe to non-position data to avoid re-render loops
   // Position is read directly in useFrame like Player.tsx does
@@ -82,11 +86,16 @@ export function Enemy({ enemyId }: EnemyProps) {
     }
   }, [isDead, enemy?.id, removeEnemy]);
 
-  // Cleanup windup timer on unmount
+  // Cleanup ALL timers on unmount - FIX: Include recovery timer to prevent memory leak
   useEffect(() => {
     return () => {
       if (windupTimerRef.current) {
         clearTimeout(windupTimerRef.current);
+        windupTimerRef.current = null;
+      }
+      if (recoveryTimerRef.current) {
+        clearTimeout(recoveryTimerRef.current);
+        recoveryTimerRef.current = null;
       }
     };
   }, []);
@@ -133,15 +142,16 @@ export function Enemy({ enemyId }: EnemyProps) {
       case "chase":
         // Move towards player
         if (distanceToPlayer > config.attackRange) {
-          const direction = tempPlayerPos.current.clone().sub(enemyPos).normalize();
+          // FIX: Reuse tempDirection instead of .clone() to avoid GC pressure
+          tempDirection.current.copy(tempPlayerPos.current).sub(enemyPos).normalize();
           const moveDistance = config.speed * scaledDelta;
 
           // Update mesh position
-          meshRef.current.position.x += direction.x * moveDistance;
-          meshRef.current.position.z += direction.z * moveDistance;
+          meshRef.current.position.x += tempDirection.current.x * moveDistance;
+          meshRef.current.position.z += tempDirection.current.z * moveDistance;
 
           // Face player
-          meshRef.current.rotation.y = Math.atan2(direction.x, direction.z);
+          meshRef.current.rotation.y = Math.atan2(tempDirection.current.x, tempDirection.current.z);
         } else {
           // Start attack - transition to windup state first (telegraph)
           const now = Date.now();
@@ -179,12 +189,13 @@ export function Enemy({ enemyId }: EnemyProps) {
               // Transition to recovery state
               setEnemyState(currentEnemy.id, "recovery");
 
-              // After recovery, go back to chase or attack
-              setTimeout(() => {
+              // FIX: Track recovery timer to prevent memory leak on unmount
+              recoveryTimerRef.current = setTimeout(() => {
                 const afterRecoveryEnemy = getEnemyData();
                 if (afterRecoveryEnemy && afterRecoveryEnemy.state === "recovery") {
                   setEnemyState(afterRecoveryEnemy.id, "chase");
                 }
+                recoveryTimerRef.current = null;
               }, config.recoveryTime);
             }, config.windupTime);
           }
@@ -199,8 +210,9 @@ export function Enemy({ enemyId }: EnemyProps) {
 
       case "windup":
         // Face player during windup (tracking)
-        const windupDir = tempPlayerPos.current.clone().sub(enemyPos).normalize();
-        meshRef.current.rotation.y = Math.atan2(windupDir.x, windupDir.z);
+        // FIX: Reuse tempDirection instead of .clone()
+        tempDirection.current.copy(tempPlayerPos.current).sub(enemyPos).normalize();
+        meshRef.current.rotation.y = Math.atan2(tempDirection.current.x, tempDirection.current.z);
 
         // Can be interrupted by player moving far away
         if (distanceToPlayer > config.attackRange * 2) {
@@ -214,9 +226,9 @@ export function Enemy({ enemyId }: EnemyProps) {
 
       case "recovery":
         // Enemy is vulnerable during recovery - can't move or attack
-        // Just face player
-        const recoveryDir = tempPlayerPos.current.clone().sub(enemyPos).normalize();
-        meshRef.current.rotation.y = Math.atan2(recoveryDir.x, recoveryDir.z);
+        // Just face player - FIX: Reuse tempDirection instead of .clone()
+        tempDirection.current.copy(tempPlayerPos.current).sub(enemyPos).normalize();
+        meshRef.current.rotation.y = Math.atan2(tempDirection.current.x, tempDirection.current.z);
         break;
 
       case "attack":

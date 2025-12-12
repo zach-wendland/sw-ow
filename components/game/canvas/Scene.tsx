@@ -10,25 +10,58 @@ import { ThirdPersonCamera } from "./Camera";
 import { useEnemyStore } from "@/lib/stores/useEnemyStore";
 import { useTutorialStore, selectTutorialActive, selectCurrentStep } from "@/lib/stores/useTutorialStore";
 
-// Initial enemy spawns for normal gameplay
-// Y position is above voxel terrain (base height ~16-20)
-const INITIAL_SPAWNS = [
-  { type: "slime", position: { x: 10, y: 20, z: 10 } },
-  { type: "slime", position: { x: -8, y: 20, z: 12 } },
-  { type: "wolf", position: { x: 15, y: 20, z: -5 } },
-  { type: "wolf", position: { x: -12, y: 20, z: -10 } },
-  { type: "bandit", position: { x: 20, y: 20, z: 20 } },
-  { type: "skeleton", position: { x: -20, y: 20, z: 15 } },
-  { type: "golem", position: { x: 30, y: 20, z: 0 } },
+// ============================================================================
+// FIRST MISSION: "ECHOES OF THE CLONE WARS"
+// An abandoned Separatist shipyard graveyard where dormant droids reactivate
+// ============================================================================
+
+// Phase 1: Tutorial B1 droids - easy targets to learn combat
+const MISSION_PHASE_1 = [
+  { type: "b1_droid", position: { x: 8, y: 22, z: 8 } },   // First encounter
+  { type: "b1_droid", position: { x: 12, y: 22, z: 6 } },  // Pair after first
+  { type: "b1_droid", position: { x: 10, y: 22, z: 12 } }, // Third to practice combo
 ];
 
-// Tutorial enemy spawns - weaker enemies closer to player
+// Phase 2: B2 Super Battle Droids - real challenge
+const MISSION_PHASE_2 = [
+  { type: "b2_droid", position: { x: 20, y: 22, z: 15 } },
+  { type: "b2_droid", position: { x: 25, y: 22, z: 20 } },
+];
+
+// Phase 3: Droideka mini-boss
+const MISSION_PHASE_3 = [
+  { type: "droideka", position: { x: 35, y: 22, z: 10 } },
+];
+
+// Full first mission spawns (all phases at once for now)
+const FIRST_MISSION_SPAWNS = [
+  ...MISSION_PHASE_1,
+  ...MISSION_PHASE_2,
+  ...MISSION_PHASE_3,
+];
+
+// Legacy fantasy spawns for variety/testing
+const FANTASY_SPAWNS = [
+  { type: "slime", position: { x: -10, y: 20, z: 10 } },
+  { type: "wolf", position: { x: -15, y: 20, z: -5 } },
+  { type: "bandit", position: { x: -20, y: 20, z: 20 } },
+  { type: "skeleton", position: { x: -25, y: 20, z: 15 } },
+  { type: "golem", position: { x: -30, y: 20, z: 0 } },
+];
+
+// Combined spawns: Star Wars mission + fantasy enemies
+const INITIAL_SPAWNS = [
+  ...FIRST_MISSION_SPAWNS,
+  ...FANTASY_SPAWNS,
+];
+
+// Tutorial enemy spawns - B1 droid for Star Wars theme
 const TUTORIAL_COMBAT_SPAWN = [
-  { type: "slime", position: { x: 5, y: 22, z: 5 } }, // Single weak enemy for combat step
+  { type: "b1_droid", position: { x: 5, y: 22, z: 5 } }, // Single B1 for combat step
 ];
 
 const TUTORIAL_COMBO_SPAWN = [
-  { type: "slime", position: { x: 4, y: 22, z: 4 } }, // Enemy for combo practice
+  { type: "b1_droid", position: { x: 4, y: 22, z: 4 } }, // B1 for combo practice
 ];
 
 export function Scene() {
